@@ -1,0 +1,44 @@
+# Tempo 3 monolithic mode sends traces directly to its live store; no Kafka.
+target: all
+stream_over_http_enabled: true
+
+server:
+  http_listen_port: 3200
+  log_level: info
+
+distributor:
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+          endpoint: 0.0.0.0:4317
+        http:
+          endpoint: 0.0.0.0:4318
+
+live_store:
+  wal:
+    path: /var/tempo/live-store/wal
+  shutdown_marker_dir: /var/tempo/live-store/shutdown-marker
+  query_block_concurrency: 4
+
+storage:
+  trace:
+    backend: local
+    wal:
+      path: /var/tempo/wal
+    local:
+      path: /var/tempo/blocks
+
+backend_scheduler:
+  local_work_path: /var/tempo/scheduler
+
+# Tempo 3 uses backend scheduler/workers for compaction and retention.
+# Do not substitute the removed Tempo 2 `compactor` configuration block.
+overrides:
+  defaults:
+    compaction:
+      block_retention: 336h
+      compaction_disabled: false
+
+usage_report:
+  reporting_enabled: false

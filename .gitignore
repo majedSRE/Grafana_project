@@ -1,0 +1,51 @@
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+secrets/
+*.pem
+*.key
+*.pfx
+*.p12
+*.kubeconfig
+credentials*
+*password*
+!*.example
+.azure/
+.ssh/
+
+# Runtime telemetry, backups and local validation
+data/
+*-data/
+backups/
+*.snapshot
+*.sqlite*
+*.db
+.local-validation/
+validation-results/
+versions.lock.json
+
+# Infrastructure state and local inputs must never enter Git
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.tfvars
+*.tfvars.json
+!*.tfvars.example
+!*.tfvars.json.example
+.terraform.tfstate.lock.info
+*.tfplan.json
+crash.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Tool caches
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.DS_Store
+Thumbs.db

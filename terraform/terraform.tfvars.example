@@ -1,0 +1,5 @@
+# Copy to terraform.tfvars locally. This example deliberately cannot deploy unchanged.
+subscription_id      = "REPLACE_WITH_TEST_SUBSCRIPTION_UUID"
+admin_source_cidr    = "REPLACE_WITH_YOUR_PUBLIC_IPV4/32"
+admin_ssh_public_key = "REPLACE_WITH_CONTENTS_OF_YOUR_PUBLIC_KEY_FILE"
+ubuntu_image_version = "REPLACE_WITH_EXACT_AVAILABLE_IMAGE_VERSION"

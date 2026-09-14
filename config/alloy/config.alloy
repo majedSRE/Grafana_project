@@ -1,0 +1,208 @@
+// Alloy uses --storage.path=/var/lib/alloy for persistent journal/Docker cursors.
+// OTLP exporter queues below are bounded, in-memory buffers: they do not survive
+// an Alloy crash. This TEST platform does not guarantee lossless delivery.
+logging {
+  level  = "info"
+  format = "logfmt"
+}
+
+// ----- Monitoring-host journal and Docker logs -----
+loki.relabel "journal" {
+  forward_to = []
+
+  rule {
+    source_labels = ["__journal__systemd_unit"]
+    target_label  = "unit"
+  }
+
+  rule {
+    source_labels = ["__journal__systemd_unit"]
+    target_label  = "service"
+  }
+}
+
+loki.source.journal "host" {
+  max_age       = "1h"
+  relabel_rules = loki.relabel.journal.rules
+  forward_to    = [loki.write.platform.receiver]
+
+  labels = {
+    environment = sys.env("ENVIRONMENT"),
+    server      = sys.env("SERVER_NAME"),
+    source      = "systemd-journal",
+  }
+}
+
+discovery.docker "local" {
+  host             = "unix:///var/run/docker.sock"
+  refresh_interval = "5s"
+}
+
+discovery.relabel "docker_logs" {
+  targets = []
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container"
+  }
+
+  // Fallback for temporary validation containers that have no Compose label.
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "service"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    regex         = "(.+)"
+    target_label  = "service"
+  }
+}
+
+// One Docker source tails all discovered containers, including Alloy itself.
+// Docker uses json-file logging; container logs are not also sent to journald.
+loki.source.docker "containers" {
+  host             = "unix:///var/run/docker.sock"
+  targets          = discovery.docker.local.targets
+  relabel_rules    = discovery.relabel.docker_logs.rules
+  refresh_interval = "5s"
+  forward_to       = [loki.write.platform.receiver]
+
+  labels = {
+    environment = sys.env("ENVIRONMENT"),
+    server      = sys.env("SERVER_NAME"),
+    source      = "docker",
+  }
+}
+
+loki.write "platform" {
+  max_streams = 1000
+
+  endpoint {
+    url                 = "http://loki:3100/loki/api/v1/push"
+    batch_size          = "1MiB"
+    batch_wait          = "1s"
+    remote_timeout      = "10s"
+    min_backoff_period  = "500ms"
+    max_backoff_period  = "30s"
+    max_backoff_retries = 10
+  }
+}
+
+// ----- Future external OpenTelemetry clients -----
+// Only these receiver ports are published, on the VM's private IP.
+otelcol.receiver.otlp "ingress" {
+  grpc {
+    endpoint = "0.0.0.0:4317"
+  }
+
+  http {
+    endpoint = "0.0.0.0:4318"
+  }
+
+  output {
+    metrics = [otelcol.processor.memory_limiter.ingress.input]
+    logs    = [otelcol.processor.memory_limiter.ingress.input]
+    traces  = [otelcol.processor.memory_limiter.ingress.input]
+  }
+}
+
+otelcol.processor.memory_limiter "ingress" {
+  check_interval = "1s"
+  limit          = "1536MiB"
+  spike_limit    = "256MiB"
+
+  output {
+    metrics = [otelcol.processor.batch.ingress.input]
+    logs    = [otelcol.processor.batch.ingress.input]
+    traces  = [otelcol.processor.batch.ingress.input]
+  }
+}
+
+otelcol.processor.batch "ingress" {
+  timeout             = "1s"
+  send_batch_size     = 1024
+  send_batch_max_size = 2048
+
+  output {
+    metrics = [otelcol.exporter.otlphttp.prometheus.input]
+    logs    = [otelcol.exporter.otlphttp.loki.input]
+    traces  = [otelcol.exporter.otlp.tempo.input]
+  }
+}
+
+// Prometheus appends /v1/metrics to this endpoint. Send cumulative metrics.
+// One queue consumer preserves exporter ordering for each metric time series.
+otelcol.exporter.otlphttp "prometheus" {
+  client {
+    endpoint    = "http://prometheus:9090/api/v1/otlp"
+    timeout     = "10s"
+    compression = "gzip"
+  }
+
+  sending_queue {
+    enabled       = true
+    num_consumers = 1
+    sizer         = "bytes"
+    queue_size    = 67108864
+  }
+
+  retry_on_failure {
+    enabled          = true
+    initial_interval = "1s"
+    max_interval     = "30s"
+    max_elapsed_time = "5m"
+  }
+}
+
+// Native Loki OTLP ingestion preserves resource attributes and trace IDs.
+otelcol.exporter.otlphttp "loki" {
+  client {
+    endpoint    = "http://loki:3100/otlp"
+    timeout     = "10s"
+    compression = "gzip"
+  }
+
+  sending_queue {
+    enabled       = true
+    num_consumers = 2
+    sizer         = "bytes"
+    queue_size    = 67108864
+  }
+
+  retry_on_failure {
+    enabled          = true
+    initial_interval = "1s"
+    max_interval     = "30s"
+    max_elapsed_time = "5m"
+  }
+}
+
+otelcol.exporter.otlp "tempo" {
+  timeout = "10s"
+
+  client {
+    endpoint    = "tempo:4317"
+    compression = "gzip"
+
+    tls {
+      insecure = true
+    }
+  }
+
+  sending_queue {
+    enabled       = true
+    num_consumers = 2
+    sizer         = "bytes"
+    queue_size    = 67108864
+  }
+
+  retry_on_failure {
+    enabled          = true
+    initial_interval = "1s"
+    max_interval     = "30s"
+    max_elapsed_time = "5m"
+  }
+}

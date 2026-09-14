@@ -1,0 +1,57 @@
+global:
+  scrape_interval: 15s
+  scrape_timeout: 10s
+  evaluation_interval: 15s
+  external_labels:
+    environment: test
+
+# Supplemental application metrics arrive via Alloy's OTLP HTTP exporter.
+# Infrastructure metrics continue to use direct Prometheus scraping.
+otlp:
+  promote_resource_attributes:
+    - service.name
+    - service.namespace
+    - deployment.environment.name
+    - host.name
+
+# Batches retried by the telemetry gateway can arrive slightly out of order.
+storage:
+  tsdb:
+    out_of_order_time_window: 5m
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["prometheus:9090"]
+        labels: {server: vm-monitoring-v2-test, environment: test}
+
+  - job_name: linux-server
+    static_configs:
+      # The fixed Docker bridge gateway reaches the host systemd exporter.
+      - targets: ["172.28.0.1:9100"]
+        labels: {server: vm-monitoring-v2-test, environment: test}
+
+  - job_name: cadvisor
+    static_configs:
+      - targets: ["cadvisor:8080"]
+        labels: {server: vm-monitoring-v2-test, environment: test}
+
+  - job_name: grafana
+    static_configs:
+      - targets: ["grafana:3000"]
+        labels: {server: vm-monitoring-v2-test, environment: test}
+
+  - job_name: loki
+    static_configs:
+      - targets: ["loki:3100"]
+        labels: {server: vm-monitoring-v2-test, environment: test}
+
+  - job_name: tempo
+    static_configs:
+      - targets: ["tempo:3200"]
+        labels: {server: vm-monitoring-v2-test, environment: test}
+
+  - job_name: alloy
+    static_configs:
+      - targets: ["alloy:12345"]
+        labels: {server: vm-monitoring-v2-test, environment: test}

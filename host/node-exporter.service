@@ -1,0 +1,25 @@
+[Unit]
+Description=Prometheus Node Exporter for the observability host
+Documentation=https://github.com/prometheus/node_exporter
+Wants=network-online.target
+After=network-online.target observability-node-exporter-firewall.service
+Requires=observability-node-exporter-firewall.service
+
+[Service]
+Type=simple
+User=node-exporter
+Group=node-exporter
+# An IPv4 listener avoids depending on the Docker bridge existing at boot.
+# The required INPUT firewall admits only loopback and the monitoring bridge.
+ExecStart=/usr/local/bin/node_exporter --web.listen-address=0.0.0.0:9100
+Restart=on-failure
+RestartSec=5s
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,100 @@
+# Isolated Docker Desktop smoke tests; this is NOT the Azure deployment file.
+# Uses named volumes, a generated ephemeral credential, and a containerized
+# Node Exporter because the test host cannot install the Azure systemd service.
+# Relative paths resolve from the root docker-compose.yml.
+services:
+  validation-init:
+    image: python:3.14.7-slim-bookworm
+    user: "0:0"
+    network_mode: none
+    restart: "no"
+    command: [python, /checks/init_local.py]
+    volumes:
+      - ./tests:/checks:ro
+      - qa-prometheus:/state/prometheus
+      - qa-grafana:/state/grafana
+      - qa-loki:/state/loki
+      - qa-tempo:/state/tempo
+      - qa-alloy:/state/alloy
+      - qa-secrets:/state/secrets
+
+  prometheus:
+    depends_on:
+      validation-init:
+        condition: service_completed_successfully
+    volumes: !override
+      - ./config/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - qa-prometheus:/prometheus
+
+  grafana:
+    depends_on:
+      validation-init:
+        condition: service_completed_successfully
+    ports: !override
+      - "127.0.0.1:13000:3000"
+    secrets: !reset []
+    volumes: !override
+      - ./config/grafana/provisioning:/etc/grafana/provisioning:ro
+      - qa-grafana:/var/lib/grafana
+      - qa-secrets:/run/secrets:ro
+
+  loki:
+    depends_on:
+      validation-init:
+        condition: service_completed_successfully
+    volumes: !override
+      - ./config/loki/loki-config.yaml:/etc/loki/loki-config.yaml:ro
+      - qa-loki:/loki
+
+  tempo:
+    depends_on:
+      validation-init:
+        condition: service_completed_successfully
+    volumes: !override
+      - ./config/tempo/tempo.yaml:/etc/tempo/tempo.yaml:ro
+      - qa-tempo:/var/tempo
+
+  alloy:
+    depends_on:
+      validation-init:
+        condition: service_completed_successfully
+    ports: !override
+      - "127.0.0.1:14317:4317"
+      - "127.0.0.1:14318:4318"
+    volumes: !override
+      - ./config/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - qa-alloy:/var/lib/alloy
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - qa-journal:/var/log/journal:ro
+      - /etc/machine-id:/etc/machine-id:ro
+
+  node-exporter-validation:
+    image: prom/node-exporter:v1.12.1
+    network_mode: host
+    pid: host
+    restart: unless-stopped
+    command:
+      - --web.listen-address=172.28.0.1:9100
+      - --path.rootfs=/host
+    volumes:
+      - /:/host:ro
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  monitoring:
+    name: observability-validation
+    driver_opts:
+      com.docker.network.bridge.name: br-observe-qa
+
+volumes:
+  qa-prometheus:
+  qa-grafana:
+  qa-loki:
+  qa-tempo:
+  qa-alloy:
+  qa-secrets:
+  qa-journal:

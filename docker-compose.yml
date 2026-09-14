@@ -1,0 +1,198 @@
+name: observability-test
+
+# Run from /opt/observability on the monitoring VM, using sudo.
+# Host directories must already exist on the mounted telemetry disk.
+x-service-defaults: &service-defaults
+  restart: unless-stopped
+  networks:
+    - monitoring
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+  stop_grace_period: 60s
+
+services:
+  prometheus:
+    <<: *service-defaults
+    image: prom/prometheus:v3.14.0
+    user: "65534:65534"
+    mem_limit: 6g
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=14d
+      - --storage.tsdb.retention.size=60GB
+      - --web.enable-otlp-receiver
+      - --query.max-concurrency=4
+      - --query.timeout=1m
+    volumes:
+      - type: bind
+        source: ./config/prometheus/prometheus.yml
+        target: /etc/prometheus/prometheus.yml
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${OBSERVABILITY_DATA_DIR:?Set OBSERVABILITY_DATA_DIR in .env}/prometheus
+        target: /prometheus
+        bind:
+          create_host_path: false
+
+  grafana:
+    <<: *service-defaults
+    image: grafana/grafana:13.2.1
+    user: "472:472"
+    mem_limit: 2g
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD__FILE: /run/secrets/grafana_admin_password
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_METRICS_ENABLED: "true"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+    ports:
+      - "127.0.0.1:3000:3000"
+    secrets:
+      - grafana_admin_password
+    volumes:
+      - type: bind
+        source: ./config/grafana/provisioning
+        target: /etc/grafana/provisioning
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${OBSERVABILITY_DATA_DIR:?Set OBSERVABILITY_DATA_DIR in .env}/grafana
+        target: /var/lib/grafana
+        bind:
+          create_host_path: false
+
+  loki:
+    <<: *service-defaults
+    image: grafana/loki:3.7.7
+    user: "10001:10001"
+    mem_limit: 6g
+    command:
+      - -config.file=/etc/loki/loki-config.yaml
+      - -target=all
+    volumes:
+      - type: bind
+        source: ./config/loki/loki-config.yaml
+        target: /etc/loki/loki-config.yaml
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${OBSERVABILITY_DATA_DIR:?Set OBSERVABILITY_DATA_DIR in .env}/loki
+        target: /loki
+        bind:
+          create_host_path: false
+
+  tempo:
+    <<: *service-defaults
+    image: grafana/tempo:3.0.3
+    user: "10001:10001"
+    mem_limit: 8g
+    command:
+      - -target=all
+      - -config.file=/etc/tempo/tempo.yaml
+    volumes:
+      - type: bind
+        source: ./config/tempo/tempo.yaml
+        target: /etc/tempo/tempo.yaml
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${OBSERVABILITY_DATA_DIR:?Set OBSERVABILITY_DATA_DIR in .env}/tempo
+        target: /var/tempo
+        bind:
+          create_host_path: false
+
+  alloy:
+    <<: *service-defaults
+    image: grafana/alloy:v1.19.2
+    # Host journals and the Docker API require privileged host access.
+    # A read-only socket mount does NOT make Docker API access read-only.
+    user: "0:0"
+    mem_limit: 2g
+    environment:
+      SERVER_NAME: ${SERVER_NAME:-vm-monitoring-v2-test}
+      ENVIRONMENT: ${ENVIRONMENT:-test}
+      GOMEMLIMIT: 1536MiB
+    command:
+      - run
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --storage.path=/var/lib/alloy
+      - --disable-reporting
+      - /etc/alloy/config.alloy
+    ports:
+      - "${MONITORING_PRIVATE_IP:?Set MONITORING_PRIVATE_IP in .env}:4317:4317"
+      - "${MONITORING_PRIVATE_IP:?Set MONITORING_PRIVATE_IP in .env}:4318:4318"
+    volumes:
+      - type: bind
+        source: ./config/alloy/config.alloy
+        target: /etc/alloy/config.alloy
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${OBSERVABILITY_DATA_DIR:?Set OBSERVABILITY_DATA_DIR in .env}/alloy
+        target: /var/lib/alloy
+        bind:
+          create_host_path: false
+      - type: bind
+        source: /var/run/docker.sock
+        target: /var/run/docker.sock
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: /var/log/journal
+        target: /var/log/journal
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: /etc/machine-id
+        target: /etc/machine-id
+        read_only: true
+        bind:
+          create_host_path: false
+
+  cadvisor:
+    <<: *service-defaults
+    image: ghcr.io/google/cadvisor:0.60.5
+    privileged: true
+    mem_limit: 1g
+    command:
+      - --docker_only=true
+      - --housekeeping_interval=15s
+      - --store_container_labels=false
+      - --whitelisted_container_labels=com.docker.compose.service,com.docker.compose.project
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+      - /dev/disk:/dev/disk:ro
+    devices:
+      - /dev/kmsg:/dev/kmsg
+
+networks:
+  monitoring:
+    name: observability-test
+    driver: bridge
+    driver_opts:
+      com.docker.network.bridge.name: br-observe
+    ipam:
+      config:
+        - subnet: 172.28.0.0/24
+          gateway: 172.28.0.1
+
+secrets:
+  grafana_admin_password:
+    file: ${GRAFANA_ADMIN_PASSWORD_FILE:?Set GRAFANA_ADMIN_PASSWORD_FILE in .env}

@@ -1,0 +1,88 @@
+# Single-instance TEST Loki. Keep every path below /loki on persistent storage.
+auth_enabled: false
+
+server:
+  http_listen_port: 3100
+  log_level: info
+
+common:
+  instance_addr: 127.0.0.1
+  path_prefix: /loki
+  replication_factor: 1
+  ring:
+    kvstore:
+      store: inmemory
+  storage:
+    filesystem:
+      chunks_directory: /loki/chunks
+      rules_directory: /loki/rules
+
+schema_config:
+  configs:
+    - from: "2024-01-01"
+      store: tsdb
+      object_store: filesystem
+      schema: v13
+      index:
+        prefix: index_
+        period: 24h
+
+storage_config:
+  tsdb_shipper:
+    active_index_directory: /loki/tsdb-index
+    cache_location: /loki/tsdb-cache
+
+ingester:
+  wal:
+    enabled: true
+    dir: /loki/wal
+    replay_memory_ceiling: 1GB
+
+compactor:
+  working_directory: /loki/compactor
+  compaction_interval: 10m
+  retention_enabled: true
+  retention_delete_delay: 2h
+  retention_delete_worker_count: 10
+  delete_request_store: filesystem
+
+limits_config:
+  retention_period: 336h
+  max_query_lookback: 336h
+  allow_structured_metadata: true
+  ingestion_rate_mb: 4
+  ingestion_burst_size_mb: 8
+  max_query_parallelism: 4
+  tsdb_max_query_parallelism: 4
+  split_queries_by_interval: 1h
+  # Native OTLP resource attributes not indexed below remain structured metadata.
+  # In particular, service.instance.id and request/trace IDs are not index labels.
+  otlp_config:
+    resource_attributes:
+      ignore_defaults: true
+      attributes_config:
+        - action: index_label
+          attributes:
+            - service.name
+            - service.namespace
+            - deployment.environment.name
+
+querier:
+  max_concurrent: 2
+
+query_range:
+  cache_results: true
+  results_cache:
+    cache:
+      embedded_cache:
+        enabled: true
+        max_size_mb: 64
+
+chunk_store_config:
+  chunk_cache_config:
+    embedded_cache:
+      enabled: true
+      max_size_mb: 128
+
+analytics:
+  reporting_enabled: false

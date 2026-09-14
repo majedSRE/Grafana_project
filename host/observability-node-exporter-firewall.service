@@ -1,0 +1,15 @@
+[Unit]
+Description=Restrict Node Exporter ingress to the monitoring Docker bridge
+Documentation=https://docs.docker.com/engine/network/packet-filtering-firewalls/
+Wants=network-pre.target
+Before=network-pre.target node-exporter.service
+After=local-fs.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/observability-node-exporter-firewall
+RemainAfterExit=yes
+# Deliberately no ExecStop: stopping this unit must not expose port 9100.
+
+[Install]
+WantedBy=multi-user.target
