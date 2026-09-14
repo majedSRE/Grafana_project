@@ -16,6 +16,7 @@ services:
       - qa-loki:/state/loki
       - qa-tempo:/state/tempo
       - qa-alloy:/state/alloy
+      - qa-alertmanager:/state/alertmanager
       - qa-secrets:/state/secrets
 
   prometheus:
@@ -24,6 +25,7 @@ services:
         condition: service_completed_successfully
     volumes: !override
       - ./config/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./config/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
       - qa-prometheus:/prometheus
 
   grafana:
@@ -37,6 +39,14 @@ services:
       - ./config/grafana/provisioning:/etc/grafana/provisioning:ro
       - qa-grafana:/var/lib/grafana
       - qa-secrets:/run/secrets:ro
+
+  alertmanager:
+    depends_on:
+      validation-init:
+        condition: service_completed_successfully
+    volumes: !override
+      - ./config/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - qa-alertmanager:/alertmanager
 
   loki:
     depends_on:
@@ -98,3 +108,4 @@ volumes:
   qa-alloy:
   qa-secrets:
   qa-journal:
+  qa-alertmanager:

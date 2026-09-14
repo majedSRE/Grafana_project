@@ -37,7 +37,7 @@ preflight() {
 import ipaddress, json, os, pathlib, stat, subprocess, sys
 model = json.load(sys.stdin)
 services = model["services"]
-expected = {"grafana": 472, "prometheus": 65534, "loki": 10001, "tempo": 10001, "alloy": 0}
+expected = {"grafana": 472, "prometheus": 65534, "loki": 10001, "tempo": 10001, "alloy": 0, "alertmanager": 65534}
 data_root = pathlib.Path("/opt/observability-data")
 for name, uid in expected.items():
     directory = data_root / name
@@ -103,9 +103,9 @@ case "${1:-help}" in
   start)
     case "${2:-}" in
       metrics) services=(prometheus cadvisor) ;;
-      ui) services=(prometheus cadvisor grafana) ;;
-      logs) services=(prometheus cadvisor grafana loki alloy) ;;
-      traces|all) services=(prometheus cadvisor grafana loki tempo alloy) ;;
+      ui) services=(prometheus cadvisor grafana alertmanager) ;;
+      logs) services=(prometheus cadvisor grafana loki alloy alertmanager) ;;
+      traces|all) services=(prometheus cadvisor grafana loki tempo alloy alertmanager) ;;
       *) echo 'Choose a layer: metrics, ui, logs, traces, or all.' >&2; exit 2 ;;
     esac
     preflight

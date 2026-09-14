@@ -20,6 +20,7 @@ DEFAULT_ENDPOINTS = {
     "tempo": "http://tempo:3200",
     "alloy": "http://alloy:12345",
     "cadvisor": "http://cadvisor:8080",
+    "alertmanager": "http://alertmanager:9093",
 }
 DEFAULT_JOBS = [
     "linux-server", "cadvisor", "prometheus", "grafana", "loki", "tempo", "alloy"
@@ -112,6 +113,9 @@ def check_service(service: str, endpoint: str, timeout: float) -> None:
         "alloy": [
             ("/-/ready", "Alloy is ready."),
             ("/-/healthy", "All Alloy components are healthy."),
+        ],
+        "alertmanager": [
+            ("/-/ready", "OK"),
         ],
     }
     for path, expected in checks[service]:

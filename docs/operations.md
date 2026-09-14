@@ -100,6 +100,17 @@ Alloy's OTLP queues are bounded and in memory. Short backend interruptions can b
 
 Before an intentional upgrade, take the cold backup described in the host runbook, retain the old configuration and lock file, review upstream upgrade instructions, update one component, and rerun its checks. Do not overwrite `.env` or the Grafana secret. Merely changing the bootstrap secret does not reset the existing Grafana admin password.
 
+## Safe local failure drill
+
+The local validation stack supports bounded restart drills. These affect only the named service in the `observability-validation` project and never remove volumes:
+
+```text
+python scripts/local_failure_drill.py alertmanager --seconds 10
+python scripts/local_failure_drill.py loki --seconds 10
+```
+
+Run the readiness and telemetry probes after a drill. Do not use destructive container removal or volume deletion as a normal recovery test.
+
 ## Ingestion contract for later workloads
 
 - OTLP/gRPC: private `10.20.0.4:4317` (Alloy).

@@ -21,16 +21,26 @@ services:
     mem_limit: 6g
     command:
       - --config.file=/etc/prometheus/prometheus.yml
+      - --web.enable-lifecycle
+      - --web.enable-remote-write-receiver
       - --storage.tsdb.path=/prometheus
       - --storage.tsdb.retention.time=14d
       - --storage.tsdb.retention.size=60GB
       - --web.enable-otlp-receiver
       - --query.max-concurrency=4
       - --query.timeout=1m
+    depends_on:
+      - alertmanager
     volumes:
       - type: bind
         source: ./config/prometheus/prometheus.yml
         target: /etc/prometheus/prometheus.yml
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./config/prometheus/alerts.yml
+        target: /etc/prometheus/alerts.yml
         read_only: true
         bind:
           create_host_path: false
@@ -160,6 +170,28 @@ services:
         source: /etc/machine-id
         target: /etc/machine-id
         read_only: true
+        bind:
+          create_host_path: false
+
+  alertmanager:
+    <<: *service-defaults
+    image: prom/alertmanager:v0.27.0
+    user: "65534:65534"
+    mem_limit: 512m
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+      - --web.listen-address=0.0.0.0:9093
+    volumes:
+      - type: bind
+        source: ./config/alertmanager/alertmanager.yml
+        target: /etc/alertmanager/alertmanager.yml
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${OBSERVABILITY_DATA_DIR:?Set OBSERVABILITY_DATA_DIR in .env}/alertmanager
+        target: /alertmanager
         bind:
           create_host_path: false
 

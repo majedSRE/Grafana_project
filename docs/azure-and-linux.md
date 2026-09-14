@@ -244,7 +244,8 @@ sudo install -d -o 472 -g 472 -m 0750 /opt/observability-data/grafana && \
 sudo install -d -o 65534 -g 65534 -m 0750 /opt/observability-data/prometheus && \
 sudo install -d -o 10001 -g 10001 -m 0750 /opt/observability-data/loki && \
 sudo install -d -o 10001 -g 10001 -m 0750 /opt/observability-data/tempo && \
-sudo install -d -o root -g root -m 0750 /opt/observability-data/alloy
+sudo install -d -o root -g root -m 0750 /opt/observability-data/alloy && \
+sudo install -d -o 65534 -g 65534 -m 0750 /opt/observability-data/alertmanager
 ```
 
 Check the selected mount and deployment parameters before the first start:

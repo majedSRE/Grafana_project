@@ -21,10 +21,10 @@ Future OTLP ----------------------------------> Alloy --+--> Prometheus (metrics
 
 Grafana --queries--> Prometheus / Loki / Tempo
 
-Node Exporter runs as a systemd service; the six other services use Compose.
+Node Exporter runs as a systemd service; the seven other platform services use Compose.
 ```
 
-Grafana reads all three backends directly. Alloy is the collector and OTLP gateway. cAdvisor supplies per-container resource measurements; Node Exporter measures the Linux host. Neither exporter alone proves that a backend can serve queries.
+Grafana reads all three backends directly. Alloy is the collector and OTLP gateway. cAdvisor supplies per-container resource measurements; Node Exporter measures the Linux host. Prometheus evaluates platform alerts and sends them to the separate Alertmanager image. Neither exporter alone proves that a backend can serve queries.
 
 Versions and service limits are pinned in the complete [docker-compose.yml](docker-compose.yml). Loki and Tempo use single-instance filesystem storage. Tempo 3 retention uses its backend compaction settings, not the removed Tempo 2 compactor configuration.
 
@@ -33,8 +33,8 @@ Versions and service limits are pinned in the complete [docker-compose.yml](dock
 | Location | Purpose |
 | --- | --- |
 | `terraform/` | Azure monitoring infrastructure, pinned provider, inputs, outputs and mocked plan tests |
-| `docker-compose.yml` | Six platform containers, private networking, memory limits and log rotation |
-| `config/` | Prometheus, Grafana datasources, Loki, Tempo and Alloy configuration |
+| `docker-compose.yml` | Seven platform containers, private networking, memory limits and log rotation |
+| `config/` | Prometheus rules, Grafana datasources/dashboards, Alertmanager, Loki, Tempo and Alloy configuration |
 | `host/` | Docker mount guard, journal limits, Node Exporter and its restricted host firewall |
 | `scripts/` | Safe operation, readiness checks and synthetic OTLP validation |
 | `tests/` | Offline tests and an isolated Docker Desktop smoke-test override |
@@ -68,7 +68,7 @@ Use an SSH tunnel from your local computer to access Grafana:
 ssh -L 3000:127.0.0.1:3000 grafana@<MONITORING_PUBLIC_IP>
 ```
 
-Open `http://localhost:3000`, sign in as `admin` using the securely stored password, and use Explore. The three datasources are provisioned; dashboards and alert rules are intentionally absent.
+Open `http://localhost:3000`, sign in as `admin` using the securely stored password, and use Explore. The three datasources, Platform Overview dashboard, and baseline Prometheus alerts are provisioned.
 
 ## Operations and current verification
 

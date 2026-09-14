@@ -4,7 +4,7 @@ import os
 import secrets
 
 for service, uid in (("prometheus", 65534), ("grafana", 472), ("loki", 10001),
-                     ("tempo", 10001), ("alloy", 0)):
+                     ("tempo", 10001), ("alloy", 0), ("alertmanager", 65534)):
     path = Path("/state") / service
     if not path.is_mount():
         raise SystemExit(f"Refusing to initialize a non-volume path: {path}")

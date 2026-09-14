@@ -1,0 +1,48 @@
+groups:
+  - name: observability-platform
+    interval: 30s
+    rules:
+      - alert: MonitoringTargetDown
+        expr: up == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Monitoring target is down"
+          description: "{{ $labels.job }} at {{ $labels.instance }} has been unavailable for more than two minutes."
+
+      - alert: MonitoringBackendDown
+        expr: absent(up{job=~"prometheus|grafana|loki|tempo|alloy|cadvisor"})
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Monitoring backend metrics are absent"
+          description: "The monitoring stack is not exposing the expected backend scrape series."
+
+      - alert: HostHighCpu
+        expr: 100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 85
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Host CPU utilization is high"
+          description: "CPU utilization on {{ $labels.instance }} has exceeded 85% for ten minutes."
+
+      - alert: HostLowMemory
+        expr: node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes < 0.10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Host available memory is low"
+          description: "Less than 10% of host memory is available on {{ $labels.instance }}."
+
+      - alert: HostFilesystemFilling
+        expr: (node_filesystem_avail_bytes{fstype!~"tmpfs|overlay"} / node_filesystem_size_bytes{fstype!~"tmpfs|overlay"}) < 0.15
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Host filesystem is filling"
+          description: "Filesystem {{ $labels.mountpoint }} on {{ $labels.instance }} has less than 15% free space."
