@@ -1,0 +1,187 @@
+{
+  "annotations": {"list": []},
+  "description": "Operational Linux host dashboard for the Azure monitoring VM using Node Exporter.",
+  "editable": false,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "panels": [
+    {
+      "type": "row",
+      "title": "HOST STATUS",
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 0},
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "type": "stat",
+      "title": "Host Status",
+      "description": "Node Exporter scrape status for the Azure monitoring VM.",
+      "gridPos": {"h": 5, "w": 6, "x": 0, "y": 1},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "up{job=\"linux-server\"}", "refId": "A"}],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 1}]},
+          "mappings": [
+            {"type": "value", "options": {"0": {"text": "DOWN", "color": "red"}, "1": {"text": "UP", "color": "green"}}}
+          ],
+          "color": {"mode": "thresholds"}
+        },
+        "overrides": []
+      },
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "value_and_name", "colorMode": "background", "justifyMode": "center"}
+    },
+    {
+      "type": "stat",
+      "title": "CPU Usage",
+      "description": "Current host CPU utilization calculated from idle CPU time.",
+      "gridPos": {"h": 5, "w": 6, "x": 6, "y": 1},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "100 - (avg(rate(node_cpu_seconds_total{job=\"linux-server\",mode=\"idle\"}[5m])) * 100)", "refId": "A"}],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 1,
+          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 70}, {"color": "red", "value": 85}]},
+          "color": {"mode": "thresholds"}
+        },
+        "overrides": []
+      },
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "value_and_name", "colorMode": "value", "justifyMode": "center"}
+    },
+    {
+      "type": "stat",
+      "title": "Memory Usage",
+      "description": "Current host memory utilization based on available versus total memory.",
+      "gridPos": {"h": 5, "w": 6, "x": 12, "y": 1},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "100 * (1 - node_memory_MemAvailable_bytes{job=\"linux-server\"} / node_memory_MemTotal_bytes{job=\"linux-server\"})", "refId": "A"}],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 1,
+          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 75}, {"color": "red", "value": 90}]},
+          "color": {"mode": "thresholds"}
+        },
+        "overrides": []
+      },
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "value_and_name", "colorMode": "value", "justifyMode": "center"}
+    },
+    {
+      "type": "stat",
+      "title": "Host Uptime",
+      "description": "Elapsed time since the Azure monitoring VM last booted.",
+      "gridPos": {"h": 5, "w": 6, "x": 18, "y": 1},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "time() - node_boot_time_seconds{job=\"linux-server\"}", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "dtdurations", "decimals": 1}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "value_and_name", "justifyMode": "center"}
+    },
+    {
+      "type": "row",
+      "title": "COMPUTE",
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 6},
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "CPU Utilization",
+      "description": "Host CPU utilization over time, calculated from the idle CPU rate.",
+      "gridPos": {"h": 8, "w": 8, "x": 0, "y": 7},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "100 - (avg(rate(node_cpu_seconds_total{job=\"linux-server\",mode=\"idle\"}[5m])) * 100)", "legendFormat": "CPU utilization", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "percent", "decimals": 1, "min": 0, "max": 100, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 70}, {"color": "red", "value": 85}]}}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "single"}}
+    },
+    {
+      "type": "timeseries",
+      "title": "Memory Utilization",
+      "description": "Host memory utilization over time based on available versus total memory.",
+      "gridPos": {"h": 8, "w": 8, "x": 8, "y": 7},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "100 * (1 - node_memory_MemAvailable_bytes{job=\"linux-server\"} / node_memory_MemTotal_bytes{job=\"linux-server\"})", "legendFormat": "Memory utilization", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "percent", "decimals": 1, "min": 0, "max": 100, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 75}, {"color": "red", "value": 90}]}}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "single"}}
+    },
+    {
+      "type": "timeseries",
+      "title": "System Load",
+      "description": "Linux load averages for the monitoring VM.",
+      "gridPos": {"h": 8, "w": 8, "x": 16, "y": 7},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "node_load1{job=\"linux-server\"}", "legendFormat": "1 minute", "refId": "A"},
+        {"expr": "node_load5{job=\"linux-server\"}", "legendFormat": "5 minutes", "refId": "B"},
+        {"expr": "node_load15{job=\"linux-server\"}", "legendFormat": "15 minutes", "refId": "C"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "short", "decimals": 2}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi"}}
+    },
+    {
+      "type": "row",
+      "title": "STORAGE",
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 15},
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "type": "bargauge",
+      "title": "Filesystem Utilization",
+      "description": "Persistent Linux filesystem utilization. The root filesystem and the dedicated telemetry disk are included; temporary and pseudo filesystems are excluded.",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "100 * (1 - node_filesystem_avail_bytes{job=\"linux-server\",fstype=~\"ext4|xfs|btrfs\"} / node_filesystem_size_bytes{job=\"linux-server\",fstype=~\"ext4|xfs|btrfs\"})", "legendFormat": "{{device}} {{mountpoint}}", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "percent", "decimals": 1, "min": 0, "max": 100, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 75}, {"color": "red", "value": 90}]}}, "overrides": []},
+      "options": {"displayMode": "gradient", "orientation": "horizontal", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "showUnfilled": true}
+    },
+    {
+      "type": "table",
+      "title": "Filesystem Available Space",
+      "description": "Available space for persistent Linux filesystems, displayed with device and mountpoint labels.",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "node_filesystem_avail_bytes{job=\"linux-server\",fstype=~\"ext4|xfs|btrfs\"}", "legendFormat": "{{device}} {{mountpoint}}", "refId": "A", "format": "table", "instant": true}],
+      "fieldConfig": {"defaults": {"unit": "bytes", "decimals": 1}, "overrides": []},
+      "options": {"showHeader": true, "cellHeight": "sm"}
+    },
+    {
+      "type": "row",
+      "title": "NETWORK",
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 24},
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "Network Receive",
+      "description": "Primary host network receive rate on ens1. Docker and virtual bridge interfaces are intentionally excluded.",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 25},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "rate(node_network_receive_bytes_total{job=\"linux-server\",device=\"ens1\"}[5m])", "legendFormat": "{{device}} receive", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "Bps", "decimals": 1, "min": 0}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "single"}}
+    },
+    {
+      "type": "timeseries",
+      "title": "Network Transmit",
+      "description": "Primary host network transmit rate on ens1. Docker and virtual bridge interfaces are intentionally excluded.",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 25},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "rate(node_network_transmit_bytes_total{job=\"linux-server\",device=\"ens1\"}[5m])", "legendFormat": "{{device}} transmit", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "Bps", "decimals": 1, "min": 0}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "single"}}
+    }
+  ],
+  "schemaVersion": 39,
+  "tags": ["observability", "infrastructure", "node-exporter"],
+  "templating": {"list": []},
+  "time": {"from": "now-1h", "to": "now"},
+  "timepicker": {"refresh_intervals": ["30s", "1m", "5m", "15m"]},
+  "refresh": "30s",
+  "title": "Host Infrastructure",
+  "uid": "host-infrastructure",
+  "version": 1
+}
