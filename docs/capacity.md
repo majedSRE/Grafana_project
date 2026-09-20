@@ -1,25 +1,25 @@
 # Capacity assumptions and validation
 
-The Azure target is 8 vCPUs / 32 GiB RAM with a 512 GiB P20 SSD data disk. This is capacity for monitoring telemetry; the future application runs elsewhere.
+The Azure target is 4 vCPUs / 32 GiB RAM with a 256 GiB P15 Premium SSD data disk. This is sized for the short-lived, low-ingestion capstone/demo observability workload; the application runs separately. It is not a production-scale capacity claim.
 
 | Signal | Initial envelope | Retention |
 | --- | --- | --- |
-| Metrics | 100,000 active series after histogram expansion, at 15-second intervals | 14 days, also capped at 60 GiB of retained TSDB blocks |
-| Logs | 5 GiB/day of uncompressed input | 14 days |
-| Traces | 100 received spans/second, averaging 1 KiB each | 14 days |
+| Metrics | Low-rate application and infrastructure telemetry for the demo | 14 days, also capped at 60 GiB of retained TSDB blocks |
+| Logs | Normal application, container, and system logs from the demo | 14 days |
+| Traces | Normal interactive microservice traces from the demo | 14 days |
 | Queries | A few concurrent routine Explore queries | Not a large analytical workload |
 
-Prometheus' approximate 1-2 bytes/sample gives 7.5-15 GiB for the sample data alone at this rate. Indexes, WAL, changing labels, and compaction need additional space. Logs represent 70 GiB raw input over 14 days; traces represent approximately 115 GiB. Compression and storage metadata change the actual on-disk result. [Prometheus storage reference](https://prometheus.io/docs/prometheus/latest/storage/)
+The 256 GiB disk is appropriate for the short, low-ingestion demo while retaining the existing 14-day backend policies. Actual usage depends on query history, WALs, indexes, compaction, and log/trace volume; monitor free space during the demonstration. [Prometheus storage reference](https://prometheus.io/docs/prometheus/latest/storage/)
 
-Plan 80 GiB for Prometheus, 120 GiB for Loki, 200 GiB for Tempo, 12 GiB for Grafana/Alloy state, and approximately 100 GiB for filesystem overhead and shared free space. These are budgets, not directory quotas. Loki retention does not provide disk-full eviction; inspect disk growth before running larger experiments.
+These are operational headroom assumptions, not directory quotas or proof of production capacity. Loki retention does not provide disk-full eviction; inspect disk growth before running larger experiments.
 
 Container memory limits total 25 GiB: Grafana 2, Prometheus 6, Loki 6, Tempo 8, Alloy 2, cAdvisor 1. The remaining 7 GiB supports Linux, Node Exporter, filesystem cache, and headroom. These limits are ceilings, not preallocated reservations or promised minimum requirements.
 
-## Capacity acceptance run on Azure
+## Deferred heavy synthetic scenario
 
-Perform this only after the functional checks pass, using a separate load-generating client so its resource use does not distort the monitoring VM results. The ordinary telemetry smoke probe is **not** a capacity benchmark.
+The previous heavy synthetic scenario is retained as a reference for future engineering work only. It is **not** an acceptance test for this short-lived demo VM, and the final 256 GiB design must not be presented as proving that workload. The ordinary telemetry smoke probe is also not a capacity benchmark.
 
-The standard-library generator supports the planned rates. On an authorized client in the VNet, inspect the target first with `--dry-run`, then run the same command without that flag:
+If this scenario is ever revisited on a separately approved, appropriately sized test environment, the standard-library generator supports the former planned rates. Inspect the target first with `--dry-run`; do not run it against the final capstone VM as an acceptance claim:
 
 ```bash
 python3 scripts/capacity_load.py \

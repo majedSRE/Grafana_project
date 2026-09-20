@@ -13,16 +13,16 @@ run "capacity_and_storage" {
   command = plan
 
   assert {
-    condition     = azurerm_linux_virtual_machine.monitoring.size == "Standard_D8as_v5"
-    error_message = "The baseline must retain the agreed 8-vCPU / 32-GiB VM size."
+    condition     = azurerm_linux_virtual_machine.monitoring.size == "Standard_E4as_v7"
+    error_message = "The baseline must use the agreed 4-vCPU / 32-GiB VM size."
   }
   assert {
     condition     = azurerm_linux_virtual_machine.monitoring.os_disk[0].disk_size_gb == 64 && azurerm_linux_virtual_machine.monitoring.os_disk[0].storage_account_type == "StandardSSD_LRS"
     error_message = "The OS disk must be a separate 64-GiB Standard SSD."
   }
   assert {
-    condition     = azurerm_managed_disk.telemetry.disk_size_gb == 512 && azurerm_managed_disk.telemetry.storage_account_type == "Premium_LRS" && azurerm_managed_disk.telemetry.create_option == "Empty"
-    error_message = "The telemetry disk must be a new 512-GiB Premium SSD."
+    condition     = azurerm_managed_disk.telemetry.disk_size_gb == 256 && azurerm_managed_disk.telemetry.storage_account_type == "Premium_LRS" && azurerm_managed_disk.telemetry.create_option == "Empty"
+    error_message = "The telemetry disk must be a new 256-GiB Premium SSD."
   }
   assert {
     condition     = azurerm_virtual_machine_data_disk_attachment.telemetry.lun == 0 && azurerm_virtual_machine_data_disk_attachment.telemetry.caching == "None"

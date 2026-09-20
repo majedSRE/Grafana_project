@@ -51,6 +51,21 @@ Query:
 
 Use a new marker for a later run so an old log cannot be mistaken for successful new collection.
 
+## Log categories
+
+Every log stream should be classified before it is displayed:
+
+- log_type="system": host systemd/journal logs.
+- log_type="platform": Docker logs from Prometheus, Grafana, Loki, Tempo, Alloy, Alertmanager, cAdvisor, and validation helpers.
+- log_type="application": Docker logs from an instrumented application, such as the ignored retail demo.
+
+Use these starting queries in Grafana Explore:
+
+  {log_type=~"system|platform"}
+  {log_type="application",application="retail-store"}
+
+The application overlay disables OTLP log export while Docker collection is active. This prevents the same stdout logs from being ingested twice. Re-enable OTLP logs only after the application emits structured logs with trace_id and span_id.
+
 ## Stop, start and verify persistence
 
 Graceful stopping lets the backends flush their state. The normal commands preserve volumes and bind-mounted data:

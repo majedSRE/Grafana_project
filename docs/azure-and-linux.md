@@ -2,27 +2,27 @@
 
 This is an operator runbook, not evidence that Azure resources have been created. Run one section at a time on a **new** TEST VM. The old environment is not a cleanup target. All Linux commands below run as `grafana` on the new monitoring VM unless a block is explicitly marked **local PowerShell**.
 
-The VM hosts the monitoring platform only. Application servers, dashboards, alert rules, and Ansible remain outside this phase. [Terraform](../terraform/README.md) now provides the Azure infrastructure: after a successful apply, skip section 1 and continue at section 2. Do not create the same resources through both methods.
+The VM hosts the monitoring platform only. The separate application workload is not deployed by this repository. Dashboards and alert rules are part of the monitoring platform. [Terraform](../terraform/README.md) provides the Azure infrastructure: after a successful apply, skip section 1 and continue at section 2. Do not create the same resources through both methods.
 
 ## 1. Create the Azure resources manually
 
-The capacity gives the telemetry backends space for a future microservices workload. Availability, quota, and price depend on the subscription: in the Azure portal, check UAE North availability for the exact SKU, the regional Dasv5 vCPU quota (at least 8 free vCPUs), and the cost estimate before creating resources. Include VM runtime, both disks, the public IP, snapshots, and outbound traffic. A stopped/deallocated VM still incurs charges for retained resources such as disks.
+This is a short-lived capstone/demo environment for low-ingestion observability workload. Availability, quota, and price depend on the subscription: in the Azure portal, check Central US availability for the exact SKU, the regional Easv7 vCPU quota (at least 4 free vCPUs), and the cost estimate before creating resources. Include VM runtime, both disks, the public IP, snapshots, and outbound traffic. A stopped/deallocated VM still incurs charges for retained resources such as disks.
 
 Use these portal settings:
 
 | Resource | Setting |
 | --- | --- |
 | Subscription | Your intended TEST subscription; record its name privately |
-| Region | UAE North; if the SKU or quota is unavailable, resolve that before creation |
+| Region | Central US; if the SKU or quota is unavailable, resolve that before creation |
 | Resource group | `rg-observability-v2-test` |
 | VNet | `vnet-observability-v2-test`, `10.20.0.0/16` |
 | Subnet | `snet-monitoring-v2-test`, `10.20.0.0/24` |
 | VM | `vm-monitoring-v2-test`, regular VM (not Spot) |
 | Image | Ubuntu Server 24.04 LTS, x64, Generation 2 |
-| Size | `Standard_D8as_v5`: 8 vCPUs, 32 GiB RAM |
+| Size | `Standard_E4as_v7`: 4 vCPUs, 32 GiB RAM |
 | User and authentication | `grafana`, SSH public key; retain the private key outside the project |
 | OS disk | 64 GiB Standard SSD, managed disk |
-| Data disk | New empty 512 GiB Premium SSD P20, LUN 0, host caching `None` |
+| Data disk | New empty 256 GiB Premium SSD P15, LUN 0, host caching `None` |
 | Data disk name | `disk-observability-v2-test-data` |
 | Private IP | Set the NIC IPv4 allocation to static, `10.20.0.4` |
 | Public IP | Standard, static IPv4, `pip-observability-v2-test` |
@@ -62,7 +62,7 @@ timedatectl status
 sudo systemctl status docker --no-pager
 ```
 
-Expected: Ubuntu 24.04, `x86_64`, approximately 32 GiB RAM, private IP `10.20.0.4`, 64 GiB OS disk, and an empty 512 GiB data disk. Docker may not yet exist. If existing containers, mounted data, or unexpected disks are present, stop and inspect rather than applying fresh-install steps to them.
+Expected: Ubuntu 24.04, `x86_64`, approximately 32 GiB RAM, private IP `10.20.0.4`, 64 GiB OS disk, and an empty 256 GiB data disk. Docker may not yet exist. If existing containers, mounted data, or unexpected disks are present, stop and inspect rather than applying fresh-install steps to them.
 
 Install basic administration tools and enable time synchronization so log and trace timestamps can be compared:
 
@@ -89,7 +89,7 @@ sudo wipefs --no-act "$OBSERVABILITY_DISK"
 findmnt /
 ```
 
-Proceed only if this matches the newly attached LUN 0 disk, size `549755813888` bytes (512 GiB), with no filesystem signatures, partitions, mounted children, or other data. If the stable path is absent, inspect the Azure disk mapping; never substitute a guessed disk path.
+Proceed only if this matches the newly attached LUN 0 disk, size `274877906944` bytes (256 GiB), with no filesystem signatures, partitions, mounted children, or other data. If the stable path is absent, inspect the Azure disk mapping; never substitute a guessed disk path.
 
 **The next command formats that verified empty disk. Formatting erases existing data on the selected device and is only for the new disk's first setup. Never repeat it on a disk that contains platform data.** This layout uses an ext4 filesystem on the whole data disk, without a partition table:
 

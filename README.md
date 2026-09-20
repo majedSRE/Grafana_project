@@ -1,12 +1,12 @@
 # Unified Monitoring & Observability Platform Using Grafana
 
-An Azure TEST monitoring foundation with Terraform infrastructure and a step-by-step Linux/platform installation. The repository contains the platform and synthetic validation tools; an external demo application's source and deployment are not part of it. Dashboards, alert rules, and Ansible are deferred.
+An Azure TEST monitoring foundation with Terraform infrastructure and a step-by-step Linux/platform installation. The repository contains the platform and synthetic validation tools; an external demo application's source and deployment are not part of it. Platform and application dashboards, Prometheus alert rules, and Alertmanager configuration are included; Ansible remains out of scope.
 
 ## Start here
 
 Start with [Terraform infrastructure](terraform/README.md) to create the Azure resources. Then follow [Azure and Linux foundation](docs/azure-and-linux.md#2-verify-the-new-host) from **section 2**, one section at a time, for the verified empty data disk, Docker, Node Exporter, storage permissions, and Grafana's secret file. The portal procedure in section 1 is an alternative to Terraform, not an additional step. These instructions target a new monitoring VM; the old environment is not a deletion target.
 
-The target is Ubuntu 24.04 on `Standard_D8as_v5` (8 vCPUs, 32 GiB RAM), with a 64 GiB OS disk and a separate 512 GiB Premium SSD telemetry disk. The VM hosts only the monitoring platform.
+The target is Ubuntu 24.04 in Central US on `Standard_E4as_v7` (4 vCPUs, 32 GiB RAM), with a 64 GiB OS disk and a separate 256 GiB Premium SSD telemetry disk. The VM hosts only the monitoring platform; the application workload remains separate.
 
 ## Architecture
 

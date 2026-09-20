@@ -1,15 +1,25 @@
 # Azure infrastructure with Terraform
 
-Terraform creates the monitoring foundation only. It does not install Docker, format disks, deploy the external demo application, or configure dashboards and alerts. Keeping Linux setup in the existing runbook lets us validate one layer at a time.
+Terraform creates the Azure monitoring foundation. The clean-host Bash bootstrap then prepares Ubuntu, installs Docker and Node Exporter, mounts the telemetry disk safely, starts the existing Compose stack, and runs validation. The external e-commerce application remains a separate validation workload and is not part of this repository's deployment.
+
+The deployment flow is:
+
+```text
+Terraform -> Azure infrastructure -> scripts/bootstrap.sh -> Docker
+-> Docker Compose -> Prometheus/Grafana/Loki/Tempo/Alloy/Alertmanager
+-> health and telemetry validation
+```
+
+Dashboards and alert rules are included in the platform configuration and are provisioned by Docker Compose/Grafana and Prometheus. They are not deferred.
 
 ## What it creates
 
 | Resource | Fixed TEST configuration |
 | --- | --- |
-| Resource group | `rg-observability-v2-test`, UAE North (`uaenorth`) |
+| Resource group | `rg-observability-v2-test`, Central US (`centralus`) |
 | VNet / subnet | `10.20.0.0/16` / `10.20.0.0/24` |
-| Monitoring VM | `vm-monitoring-v2-test`, Ubuntu 24.04 Server, `Standard_D8as_v5` (8 vCPUs / 32 GiB) |
-| OS / telemetry disks | 64 GiB Standard SSD / separate empty 512 GiB Premium SSD, LUN 0, caching None |
+| Monitoring VM | `vm-monitoring-v2-test`, Ubuntu 24.04 Server, `Standard_E4as_v7` (4 vCPUs / 32 GiB) |
+| OS / telemetry disks | 64 GiB Standard SSD / separate empty 256 GiB Premium SSD, LUN 0, caching None |
 | Networking | Static private `10.20.0.4`, static Standard public IPv4, subnet NSG |
 | Public inbound | SSH only from your supplied administrator IPv4 `/32` |
 | Private inbound | OTLP TCP 4317/4318 from `10.20.0.0/24` only |
@@ -33,13 +43,13 @@ az account set --subscription '<YOUR_TEST_SUBSCRIPTION_UUID>'
 az account show --query '{name:name,id:id,tenant:tenantId}' --output table
 ```
 
-Check the selected subscription, UAE North SKU availability, at least 8 free regional Dasv5 vCPUs, and the Azure cost estimate before applying. This is a paid, single-VM TEST platform, not highly available production. Deallocation does not stop disk/public-IP charges.
+Check the selected subscription, Central US SKU availability, at least 4 free regional Easv7 vCPUs, and the Azure cost estimate before applying. This is a paid, single-VM TEST platform, not highly available production. Deallocation does not stop disk/public-IP charges.
 
 Use read-only checks to examine quota and availability:
 
 ```powershell
-az vm list-skus --location uaenorth --size Standard_D8as_v5 --all --output table
-az vm list-usage --location uaenorth --output table
+az vm list-skus --location centralus --size Standard_E4as_v7 --all --output table
+az vm list-usage --location centralus --output table
 az group exists --name rg-observability-v2-test
 ```
 
@@ -61,7 +71,7 @@ az provider register --namespace Microsoft.Network --wait
 
 Authentication uses your local Azure CLI session. No Azure credentials go in Terraform files. [AzureRM authentication documentation](https://registry.terraform.io/providers/hashicorp/azurerm/5.5.0/docs)
 
-## 2. Set the four required inputs
+## 2. Set the four required Terraform inputs
 
 From the repository root:
 
@@ -78,17 +88,26 @@ Copy only on first setup; do not overwrite an existing local `terraform.tfvars`.
 3. `admin_ssh_public_key`: the full single-line contents of your existing `.pub` file. Keep the corresponding private key outside this repository. No key pair is generated or stored by Terraform.
 4. `ubuntu_image_version`: an exact available version from the command below. Do not use `latest`.
 
+The bootstrap also requires operator-provided host values before it can start Compose:
+
+- `MONITORING_PRIVATE_IP=10.20.0.4` in `/opt/observability/.env`.
+- `OBSERVABILITY_DATA_DIR=/opt/observability-data` in `/opt/observability/.env`.
+- A strong Grafana admin password of at least 16 characters in the ignored file referenced by `GRAFANA_ADMIN_PASSWORD_FILE`.
+- `TELEMETRY_DISK_DEVICE` identifying the reviewed Azure data disk. Set `ALLOW_EMPTY_DISK_FORMAT=1` only after confirming that the disk is the new empty disk; an existing filesystem is mounted without formatting.
+
+The bootstrap never generates a default password and never overwrites an existing `.env`, secret, filesystem, or populated disk.
+
 Read your existing public key using its actual path, for example:
 
 ```powershell
 Get-Content -LiteralPath "$env:USERPROFILE\.ssh\id_ed25519.pub"
-az vm image list --location uaenorth --publisher Canonical --offer ubuntu-24_04-lts --sku server --all --query '[].{version:version,urn:urn}' --output table
+az vm image list --location centralus --publisher Canonical --offer ubuntu-24_04-lts --sku server --all --query '[].{version:version,urn:urn}' --output table
 ```
 
 Choose an available current version and copy its numeric version into your local inputs. Verify the selected image is x64 / Generation 2:
 
 ```powershell
-az vm image show --location uaenorth --urn 'Canonical:ubuntu-24_04-lts:server:<EXACT_VERSION>' --query '{architecture:architecture,generation:hyperVGeneration,version:name}' --output table
+az vm image show --location centralus --urn 'Canonical:ubuntu-24_04-lts:server:<EXACT_VERSION>' --query '{architecture:architecture,generation:hyperVGeneration,version:name}' --output table
 ```
 
 The version remains pinned across subsequent plans. Image changes can replace the VM, so review them separately. [Azure image discovery](https://learn.microsoft.com/en-us/azure/virtual-machines/linux/cli-ps-findimage)
@@ -118,7 +137,16 @@ terraform output
 
 Do not reuse a saved plan after changing inputs. Generate and review a new one instead.
 
-Connect using the `ssh_command` output, then continue [the Linux runbook at section 2](../docs/azure-and-linux.md#2-verify-the-new-host). Terraform attaches an **unformatted** telemetry disk; the runbook verifies its identity before first formatting. Never repeat formatting on a disk containing telemetry.
+Connect using the `ssh_command` output, copy the repository to `/opt/observability`, create the required Grafana secret, and run the clean-host workflow:
+
+```bash
+cd /opt/observability
+sudo env TELEMETRY_DISK_DEVICE=/dev/sdX ALLOW_EMPTY_DISK_FORMAT=1 bash scripts/bootstrap.sh
+```
+
+Replace `/dev/sdX` only after reviewing `lsblk` and `findmnt`. Omit `ALLOW_EMPTY_DISK_FORMAT=1` when the disk already has a filesystem. Terraform attaches an **unformatted** telemetry disk; the bootstrap verifies its identity before any one-time formatting. Never repeat formatting on a disk containing telemetry.
+
+The bootstrap may stop before starting Compose if the Grafana secret is missing or if the disk selection is ambiguous. Follow its message, provide the missing operator input, and rerun it safely.
 
 Only after Linux setup and platform startup will the `grafana_tunnel_command` output lead to a working Grafana instance.
 

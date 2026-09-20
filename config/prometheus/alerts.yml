@@ -46,3 +46,37 @@ groups:
         annotations:
           summary: "Host filesystem is filling"
           description: "Filesystem {{ $labels.mountpoint }} on {{ $labels.instance }} has less than 15% free space."
+
+  - name: retail-application
+    interval: 30s
+    rules:
+      - alert: ApplicationHighErrorRate
+        expr: |
+          (
+            sum by (service_name) (rate(traces_span_metrics_calls_total{service_namespace="retail-store",status_code="STATUS_CODE_ERROR"}[5m]))
+            /
+            sum by (service_name) (rate(traces_span_metrics_calls_total{service_namespace="retail-store"}[5m]))
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          team: application
+        annotations:
+          summary: "Application error rate is high"
+          description: "{{ $labels.service_name }} has exceeded 5% span errors for five minutes."
+
+      - alert: ApplicationHighP95SpanLatency
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le, service_name, span_name) (
+              rate(traces_span_metrics_duration_seconds_bucket{service_namespace="retail-store"}[5m])
+            )
+          ) > 1.5
+        for: 5m
+        labels:
+          severity: warning
+          team: application
+        annotations:
+          summary: "Application span latency is high"
+          description: "{{ $labels.service_name }} span {{ $labels.span_name }} has p95 latency above 1.5 seconds for five minutes."

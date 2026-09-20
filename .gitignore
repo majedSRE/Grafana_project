@@ -17,6 +17,11 @@ credentials*
 # Runtime telemetry, backups and local validation
 data/
 *-data/
+retail-demo-app/
+Screenshot for maicroservices overview.png
+WhatsApp Image *.jpeg
+Logs not appearing*.png
+Screenshot for the lgs*.png
 backups/
 *.snapshot
 *.sqlite*

@@ -13,6 +13,10 @@ datasources:
     jsonData:
       httpMethod: POST
       timeInterval: 15s
+      exemplarTraceIdDestinations:
+        - datasourceUid: tempo
+          name: traceID
+          url: '$${__value.raw}'
 
   - name: Loki
     uid: loki
@@ -21,6 +25,12 @@ datasources:
     url: http://loki:3100
     editable: false
     version: 1
+    jsonData:
+      derivedFields:
+        - name: TraceID
+          matcherRegex: '\"trace_id\"\\s*[:=]\\s*\"?([A-Fa-f0-9]{16,32})\"?'
+          url: '$${__value.raw}'
+          datasourceUid: tempo
 
   - name: Tempo
     uid: tempo
@@ -31,3 +41,34 @@ datasources:
     version: 1
     jsonData:
       httpMethod: GET
+      tracesToLogs:
+        datasourceUid: loki
+        tags:
+          - "service.name"
+        mappedTags:
+          - key: "service.name"
+            value: "service_name"
+        filterByTraceID: true
+        filterBySpanID: false
+      tracesToMetrics:
+        datasourceUid: prometheus
+        spanStartTimeShift: "-5m"
+        spanEndTimeShift: "5m"
+        tags:
+          - key: "service.name"
+            value: "service_name"
+        queries:
+          - name: "Request rate"
+            query: 'sum(rate(traces_span_metrics_calls_total{$__tags}[5m]))'
+            groupBy:
+              - "service_name"
+          - name: "Error rate"
+            query: 'sum(rate(traces_span_metrics_calls_total{$__tags,status_code="STATUS_CODE_ERROR"}[5m]))'
+            groupBy:
+              - "service_name"
+          - name: "p95 latency"
+            query: 'histogram_quantile(0.95, sum by (le, service_name) (rate(traces_span_metrics_duration_seconds_bucket{$__tags}[5m])))'
+            groupBy:
+              - "service_name"
+      serviceMap:
+        datasourceUid: prometheus

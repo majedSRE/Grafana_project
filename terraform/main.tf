@@ -1,6 +1,6 @@
 # Fixed TEST architecture: keep host instructions and .env.example in sync if changed.
 locals {
-  location   = "uaenorth"
+  location   = "centralus"
   private_ip = "10.20.0.4"
   tags = {
     project     = "grafana-observability"
@@ -114,7 +114,7 @@ resource "azurerm_linux_virtual_machine" "monitoring" {
   computer_name                   = "vm-monitoring-v2-test"
   location                        = azurerm_resource_group.monitoring.location
   resource_group_name             = azurerm_resource_group.monitoring.name
-  size                            = "Standard_D8as_v5"
+  size                            = "Standard_E4as_v7"
   admin_username                  = "grafana"
   disable_password_authentication = true
   network_interface_ids           = [azurerm_network_interface.monitoring.id]
@@ -150,7 +150,7 @@ resource "azurerm_managed_disk" "telemetry" {
   resource_group_name  = azurerm_resource_group.monitoring.name
   storage_account_type = "Premium_LRS"
   create_option        = "Empty"
-  disk_size_gb         = 512
+  disk_size_gb         = 256
   tags                 = local.tags
 
   lifecycle {

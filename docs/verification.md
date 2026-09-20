@@ -2,16 +2,29 @@
 
 This document separates repository checks from deployment acceptance. A configuration file passing validation does not prove the Azure platform is deployed or sized correctly.
 
-## Completed repository checks
+## A. Historical successful validation
+
+The following results are retained from the previous Linux/CI validation run. They are historical evidence, not a claim that Azure has been deployed:
 
 - Terraform 1.15.6 formatting and AzureRM 5.5.0 schema validation pass. All seven mocked Terraform plan tests pass with container networking disabled: capacity/storage, networking/access, and rejection of open SSH, invalid IPv4, private-key input, unpinned images and invalid subscription IDs. These are not real Azure plans.
 - Root Docker Compose model parses successfully with `.env.example`.
 - All 27 offline tests pass, covering OTLP payloads, partial failures, exact log/metric/trace matching, target failures, saved-record verification, and capacity-generator contracts.
 - Prometheus configuration passes the pinned Prometheus 3.14.0 `promtool` validator.
-- Prometheus alert rules pass the pinned Prometheus 3.14.0 `promtool` validator; Alertmanager 0.27.0 loads its configuration successfully.
+- Prometheus alert rules pass the pinned Prometheus 3.14.0 `promtool` validator; Alertmanager 0.27.0 loads its configuration successfully. The rules include platform/host checks plus application error-rate and p95 span-latency checks for the `retail-store` demo telemetry.
 - Loki 3.7.7, Tempo 3.0.3, and Alloy 1.19.2 accept their configurations using their actual container validators.
 
-## Completed local integration checks (2026-09-14)
+## B. Current local validation
+
+The current workstation validation was run without Azure access or Terraform apply:
+
+- Docker Compose configuration passed.
+- Prometheus configuration and rules passed using the pinned `prom/prometheus:v3.14.0` image and explicit `promtool` entrypoint.
+- Alertmanager configuration passed.
+- Bash syntax checks passed for the repository shell scripts.
+- 26 automated tests passed locally. One test, `test_emit_record_can_be_verified_without_resending`, could not complete on this Windows workstation because its temporary-directory cleanup encountered a Windows permission error. It must be rerun on Ubuntu/GitHub Actions before final acceptance.
+- Grafana, Prometheus, Loki, Tempo, Alloy, Alertmanager, cAdvisor, and the five-service validation application were observed running locally. This does not validate Azure networking, disk mounting, or host systemd integration.
+
+The local integration evidence below was captured on 2026-09-19:
 
 Docker Desktop supplied 8 CPUs and approximately 7.7 GiB RAM. This is a functional smoke environment, not the 32 GiB Azure capacity target.
 
@@ -23,19 +36,26 @@ Docker Desktop supplied 8 CPUs and approximately 7.7 GiB RAM. This is a function
 - After a normal full-stack stop/start, the original metrics, log, and trace were still queryable without re-emission. No volumes were deleted.
 - A five-second generator smoke run acknowledged 10 metric samples, 6 log records, and 10 spans. This is not the one-hour capacity acceptance run.
 - `images.lock.yml` records the seven tested platform image digests.
+- The external retail demo application ran as five healthy services: UI, catalog, cart, orders, and checkout. Its OTLP traces reached Tempo through Alloy, span-derived metrics reached Prometheus, and structured application logs were emitted with trace and span IDs for Loki correlation.
+- Prometheus loaded and evaluated `ApplicationHighErrorRate` and `ApplicationHighP95SpanLatency`; both were healthy and inactive during the normal smoke check.
+- The local endpoints returned HTTP 200 from Grafana health (`:13000/api/health`) and the demo UI (`:8888/`).
 - Both Bash operating/firewall scripts pass syntax validation, and Git ignore rules exclude local secrets, environment files, Terraform state, and validation artifacts.
 - The local validation stack was stopped after the final successful readiness check. Its containers and persistent test volumes are retained; no existing user images or data were removed.
 
 The tests caught and corrected an Alloy gRPC exporter timeout setting placed in the wrong block, an HTTP client JSON content-negotiation omission, and a probe that incorrectly rejected empty `partialSuccess` acknowledgements. Actual rejected-record counts and warning messages still fail verification.
 
-## Pending runtime and Azure acceptance
+## C. Azure validation still pending
 
 - Azure resource creation, actual host disk/firewall/systemd installation, and secure SSH access.
 - Real host journal collection and the full host Prometheus target.
 - Grafana datasource connectivity, all three OTLP paths, container logs, and restart persistence on Azure.
 - VM reboot, private-port reachability, cold backup/restore, and the capacity acceptance run.
 
+The current local run also showed expected Loki warnings while Alloy replayed Docker log files older than Loki's retention boundary. New application log records were accepted; the old records were dropped by Loki by design.
+
 Update this record only with observed results. Keep per-run synthetic records under ignored `validation-results/`, not in Git.
+
+No Azure resources have been created or validated by this record. Terraform validation is pending when Terraform CLI is available in the execution environment.
 
 ## Repeat offline checks
 

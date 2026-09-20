@@ -36,7 +36,7 @@ variable "admin_ssh_public_key" {
 }
 
 variable "ubuntu_image_version" {
-  description = "Exact Canonical ubuntu-24_04-lts:server image version available in UAE North; discover and pin before planning."
+  description = "Exact Canonical ubuntu-24_04-lts:server image version available in Central US; discover and pin before planning."
   type        = string
   nullable    = false
 

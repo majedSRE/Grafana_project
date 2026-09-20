@@ -30,6 +30,7 @@ loki.source.journal "host" {
     environment = sys.env("ENVIRONMENT"),
     server      = sys.env("SERVER_NAME"),
     source      = "systemd-journal",
+    log_type    = "system",
   }
 }
 
@@ -40,6 +41,14 @@ discovery.docker "local" {
 
 discovery.relabel "docker_logs" {
   targets = []
+
+  // Docker logs are platform logs by default. Application Compose services
+  // override this with observability.log.type=application below.
+  rule {
+    action      = "replace"
+    target_label = "log_type"
+    replacement = "platform"
+  }
 
   rule {
     source_labels = ["__meta_docker_container_name"]
@@ -59,6 +68,34 @@ discovery.relabel "docker_logs" {
     regex         = "(.+)"
     target_label  = "service"
   }
+
+  rule {
+    source_labels = ["__meta_docker_container_label_observability_log_type"]
+    regex         = "(.+)"
+    target_label  = "log_type"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_label_observability_application"]
+    regex         = "(.+)"
+    target_label  = "application"
+  }
+
+  // Classify every container in the ignored retail demo Compose project,
+  // including its databases and messaging/search dependencies.
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_project"]
+    regex         = "app"
+    target_label  = "log_type"
+    replacement   = "application"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_project"]
+    regex         = "app"
+    target_label  = "application"
+    replacement   = "retail-store"
+  }
 }
 
 // One Docker source tails all discovered containers, including Alloy itself.
@@ -68,12 +105,38 @@ loki.source.docker "containers" {
   targets          = discovery.docker.local.targets
   relabel_rules    = discovery.relabel.docker_logs.rules
   refresh_interval = "5s"
-  forward_to       = [loki.write.platform.receiver]
+  forward_to       = [loki.process.application_json.receiver]
 
   labels = {
     environment = sys.env("ENVIRONMENT"),
     server      = sys.env("SERVER_NAME"),
     source      = "docker",
+  }
+}
+
+// Parse structured application logs without promoting trace/span IDs to Loki
+// labels. The IDs remain in the JSON line and can be used by Grafana's JSON
+// parser and derived-field trace links without creating high-cardinality
+// streams.
+loki.process "application_json" {
+  forward_to = [loki.write.platform.receiver]
+
+  stage.json {
+    expressions = {
+      timestamp = "timestamp",
+      level     = "level",
+      logger    = "logger",
+      thread    = "thread",
+      trace_id  = "trace_id",
+      span_id   = "span_id",
+      message   = "message",
+    }
+  }
+
+  stage.labels {
+    values = {
+      level = "",
+    }
   }
 }
 
@@ -127,9 +190,90 @@ otelcol.processor.batch "ingress" {
   send_batch_max_size = 2048
 
   output {
-    metrics = [otelcol.exporter.otlphttp.prometheus.input]
+    metrics = [
+      otelcol.exporter.otlphttp.prometheus.input,
+    ]
     logs    = [otelcol.exporter.otlphttp.loki.input]
-    traces  = [otelcol.exporter.otlp.tempo.input]
+    traces  = [
+      otelcol.connector.spanmetrics.application.input,
+      otelcol.connector.servicegraph.application.input,
+      otelcol.exporter.otlp.tempo.input,
+    ]
+  }
+}
+
+// Generate APM-style RED metrics from application spans.
+// These metrics power request rate, error rate, latency, and transaction views.
+otelcol.connector.spanmetrics "application" {
+  namespace                  = "traces.span.metrics"
+  aggregation_temporality    = "CUMULATIVE"
+  metrics_flush_interval     = "15s"
+  resource_metrics_key_attributes = [
+    "service.name",
+    "service.namespace",
+    "deployment.environment.name",
+  ]
+
+  dimension {
+    name = "http.method"
+  }
+
+  dimension {
+    name = "http.route"
+  }
+
+  histogram {
+    unit = "s"
+    explicit {
+      buckets = [
+        "5ms",
+        "10ms",
+        "25ms",
+        "50ms",
+        "100ms",
+        "250ms",
+        "500ms",
+        "1s",
+        "2s",
+        "5s",
+        "10s",
+      ]
+    }
+  }
+
+  exemplars {
+    enabled          = true
+    max_per_data_point = 3
+  }
+
+  output {
+    metrics = [otelcol.exporter.otlphttp.prometheus.input]
+  }
+}
+
+// Generate dependency edges and latency/error metrics for the service map.
+otelcol.connector.servicegraph "application" {
+  metrics_flush_interval = "15s"
+  latency_histogram_buckets = [
+    "5ms",
+    "10ms",
+    "25ms",
+    "50ms",
+    "100ms",
+    "250ms",
+    "500ms",
+    "1s",
+    "2s",
+    "5s",
+    "10s",
+  ]
+
+  dimensions = [
+    "http.method",
+  ]
+
+  output {
+    metrics = [otelcol.exporter.otlphttp.prometheus.input]
   }
 }
 
