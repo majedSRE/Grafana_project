@@ -1,0 +1,186 @@
+{
+  "annotations": {"list": []},
+  "description": "Operational resource dashboard for the Docker Compose observability containers on the Azure monitoring VM, using cAdvisor metrics.",
+  "editable": false,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "panels": [
+    {
+      "type": "row",
+      "title": "CONTAINER STATUS",
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 0},
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "type": "stat",
+      "title": "Containers Reporting",
+      "description": "Distinct Compose services reporting cAdvisor memory metrics for the observability-test project.",
+      "gridPos": {"h": 5, "w": 6, "x": 0, "y": 1},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "count(count by (container_label_com_docker_compose_service) (container_memory_working_set_bytes{container_label_com_docker_compose_project=\"observability-test\",container_label_com_docker_compose_service=~\"$service\"}))", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "short", "decimals": 0, "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 7}]}}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "value_and_name", "colorMode": "value", "justifyMode": "center"}
+    },
+    {
+      "type": "stat",
+      "title": "cAdvisor Status",
+      "description": "Prometheus scrape status for cAdvisor.",
+      "gridPos": {"h": 5, "w": 6, "x": 6, "y": 1},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "up{job=\"cadvisor\"}", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "short", "decimals": 0, "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 1}]}, "mappings": [{"type": "value", "options": {"0": {"text": "DOWN", "color": "red"}, "1": {"text": "UP", "color": "green"}}}], "color": {"mode": "thresholds"}}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "value_and_name", "colorMode": "background", "justifyMode": "center"}
+    },
+    {
+      "type": "stat",
+      "title": "Total CPU Usage (cores)",
+      "description": "Total CPU usage across the selected observability Compose services. One core equals one fully utilized CPU.",
+      "gridPos": {"h": 5, "w": 6, "x": 12, "y": 1},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sum(rate(container_cpu_usage_seconds_total{container_label_com_docker_compose_project=\"observability-test\",container_label_com_docker_compose_service=~\"$service\"}[5m]))", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "short", "decimals": 3, "min": 0}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "value_and_name", "colorMode": "value", "justifyMode": "center"}
+    },
+    {
+      "type": "stat",
+      "title": "Total Memory Working Set",
+      "description": "Total current working-set memory across the selected observability Compose services.",
+      "gridPos": {"h": 5, "w": 6, "x": 18, "y": 1},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sum(container_memory_working_set_bytes{container_label_com_docker_compose_project=\"observability-test\",container_label_com_docker_compose_service=~\"$service\"})", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "bytes", "decimals": 1, "min": 0}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "value_and_name", "colorMode": "value", "justifyMode": "center"}
+    },
+    {
+      "type": "row",
+      "title": "CPU AND MEMORY",
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 6},
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "CPU Usage by Container",
+      "description": "CPU cores used by each selected observability Compose service.",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 7},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sum by (container_label_com_docker_compose_service) (rate(container_cpu_usage_seconds_total{container_label_com_docker_compose_project=\"observability-test\",container_label_com_docker_compose_service=~\"$service\"}[5m]))", "legendFormat": "{{container_label_com_docker_compose_service}}", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "short", "decimals": 3, "min": 0}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi"}}
+    },
+    {
+      "type": "timeseries",
+      "title": "Memory Usage by Container",
+      "description": "Working-set memory used by each selected observability Compose service.",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 7},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sum by (container_label_com_docker_compose_service) (container_memory_working_set_bytes{container_label_com_docker_compose_project=\"observability-test\",container_label_com_docker_compose_service=~\"$service\"})", "legendFormat": "{{container_label_com_docker_compose_service}}", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "bytes", "decimals": 1, "min": 0}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi"}}
+    },
+    {
+      "type": "row",
+      "title": "MEMORY CAPACITY / UPTIME",
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 15},
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "Memory Utilization %",
+      "description": "Working-set memory as a percentage of the configured cAdvisor memory limit. Series with zero or unlimited limits are excluded.",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "100 * sum by (container_label_com_docker_compose_service) (container_memory_working_set_bytes{container_label_com_docker_compose_project=\"observability-test\",container_label_com_docker_compose_service=~\"$service\"}) / sum by (container_label_com_docker_compose_service) (container_spec_memory_limit_bytes{container_label_com_docker_compose_project=\"observability-test\",container_label_com_docker_compose_service=~\"$service\"} > 0)", "legendFormat": "{{container_label_com_docker_compose_service}}", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "percent", "decimals": 1, "min": 0, "max": 100, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 75}, {"color": "red", "value": 90}]}}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi"}}
+    },
+    {
+      "type": "bargauge",
+      "title": "Container Uptime",
+      "description": "Elapsed time since the earliest visible container for each selected Compose service started.",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "time() - min by (container_label_com_docker_compose_service) (container_start_time_seconds{container_label_com_docker_compose_project=\"observability-test\",container_label_com_docker_compose_service=~\"$service\"})", "legendFormat": "{{container_label_com_docker_compose_service}}", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "dtdurations", "decimals": 1}, "overrides": []},
+      "options": {"displayMode": "gradient", "orientation": "horizontal", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "showUnfilled": true}
+    },
+    {
+      "type": "row",
+      "title": "NETWORK",
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 24},
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "Network Receive by Container",
+      "description": "Network receive rate by selected observability Compose service.",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 25},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sum by (container_label_com_docker_compose_service) (rate(container_network_receive_bytes_total{container_label_com_docker_compose_project=\"observability-test\",container_label_com_docker_compose_service=~\"$service\"}[5m]))", "legendFormat": "{{container_label_com_docker_compose_service}}", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "Bps", "decimals": 1, "min": 0}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi"}}
+    },
+    {
+      "type": "timeseries",
+      "title": "Network Transmit by Container",
+      "description": "Network transmit rate by selected observability Compose service.",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 25},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "sum by (container_label_com_docker_compose_service) (rate(container_network_transmit_bytes_total{container_label_com_docker_compose_project=\"observability-test\",container_label_com_docker_compose_service=~\"$service\"}[5m]))", "legendFormat": "{{container_label_com_docker_compose_service}}", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "Bps", "decimals": 1, "min": 0}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi"}}
+    },
+    {
+      "type": "row",
+      "title": "RESOURCE SUMMARY",
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 33},
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "type": "table",
+      "title": "Container Resource Summary",
+      "description": "Current CPU usage and memory working set for each selected observability Compose service.",
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 34},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"expr": "sum by (container_label_com_docker_compose_service) (rate(container_cpu_usage_seconds_total{container_label_com_docker_compose_project=\"observability-test\",container_label_com_docker_compose_service=~\"$service\"}[5m]))", "refId": "A", "format": "table", "instant": true},
+        {"expr": "sum by (container_label_com_docker_compose_service) (container_memory_working_set_bytes{container_label_com_docker_compose_project=\"observability-test\",container_label_com_docker_compose_service=~\"$service\"})", "refId": "B", "format": "table", "instant": true}
+      ],
+      "transformations": [
+        {"id": "joinByField", "options": {"byField": "container_label_com_docker_compose_service", "mode": "outer"}}
+      ],
+      "fieldConfig": {"defaults": {"decimals": 2}, "overrides": [{"matcher": {"id": "byName", "options": "Value #A"}, "properties": [{"id": "unit", "value": "short"}, {"id": "displayName", "value": "CPU cores"}]}, {"matcher": {"id": "byName", "options": "Value #B"}, "properties": [{"id": "unit", "value": "bytes"}, {"id": "displayName", "value": "Memory working set"}]}]},
+      "options": {"showHeader": true, "cellHeight": "sm"}
+    }
+  ],
+  "schemaVersion": 39,
+  "tags": ["observability", "containers", "cadvisor"],
+  "templating": {
+    "list": [
+      {
+        "name": "service",
+        "label": "Container / Service",
+        "type": "query",
+        "datasource": {"type": "prometheus", "uid": "prometheus"},
+        "query": {"query": "label_values(container_memory_working_set_bytes{container_label_com_docker_compose_project=\"observability-test\"}, container_label_com_docker_compose_service)", "refId": "StandardVariableQuery"},
+        "refresh": 1,
+        "sort": 1,
+        "includeAll": true,
+        "multi": true,
+        "allValue": ".*",
+        "current": {"text": "All", "value": ["$__all"]},
+        "options": []
+      }
+    ]
+  },
+  "time": {"from": "now-1h", "to": "now"},
+  "timepicker": {"refresh_intervals": ["30s", "1m", "5m", "15m"]},
+  "refresh": "30s",
+  "title": "Container Overview",
+  "uid": "container-overview",
+  "version": 1
+}
