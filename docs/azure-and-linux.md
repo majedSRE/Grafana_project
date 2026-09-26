@@ -1,6 +1,10 @@
 # Manual Azure and Linux foundation
 
-This is an operator runbook, not evidence that Azure resources have been created. Run one section at a time on a **new** TEST VM. The old environment is not a cleanup target. All Linux commands below run as `grafana` on the new monitoring VM unless a block is explicitly marked **local PowerShell**.
+This is the detailed host runbook for the [Getting Started](getting-started.md)
+journey, not evidence that Azure resources have been created. Run one section
+at a time on a **new** TEST VM. The old environment is not a cleanup target.
+All Linux commands below run as `grafana` on the new monitoring VM unless a
+block is explicitly marked **local PowerShell**.
 
 The VM hosts the monitoring platform only. The separate application workload is not deployed by this repository. Dashboards and alert rules are part of the monitoring platform. [Terraform](../terraform/README.md) provides the Azure infrastructure: after a successful apply, skip section 1 and continue at section 2. Do not create the same resources through both methods.
 

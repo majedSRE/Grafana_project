@@ -1,82 +1,241 @@
+# The Compose deployment mounts this single file at /etc/prometheus/alerts.yml.
+# Keep platform and application rules as separate groups here so the existing
+# deployment path remains compatible without requiring a Compose change.
 groups:
-  - name: observability-platform
+  - name: platform-alerts
     interval: 30s
     rules:
       - alert: MonitoringTargetDown
         expr: up == 0
         for: 2m
         labels:
+          category: platform
           severity: critical
         annotations:
           summary: "Monitoring target is down"
-          description: "{{ $labels.job }} at {{ $labels.instance }} has been unavailable for more than two minutes."
+          description: "{{ $labels.job }} at {{ $labels.instance }} has been unavailable for more than two minutes; inspect the target, service logs, and network path."
 
       - alert: MonitoringBackendDown
         expr: absent(up{job=~"prometheus|grafana|loki|tempo|alloy|cadvisor"})
         for: 2m
         labels:
+          category: platform
           severity: critical
         annotations:
           summary: "Monitoring backend metrics are absent"
-          description: "The monitoring stack is not exposing the expected backend scrape series."
+          description: "The monitoring stack is not exposing the expected backend scrape series; inspect Prometheus targets and the affected backend containers."
 
       - alert: HostHighCpu
         expr: 100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 85
         for: 10m
         labels:
+          category: platform
           severity: warning
         annotations:
           summary: "Host CPU utilization is high"
-          description: "CPU utilization on {{ $labels.instance }} has exceeded 85% for ten minutes."
+          description: "CPU utilization on {{ $labels.instance }} has exceeded 85% for ten minutes; inspect host processes and container CPU consumers."
 
       - alert: HostLowMemory
         expr: node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes < 0.10
         for: 5m
         labels:
+          category: platform
           severity: warning
         annotations:
           summary: "Host available memory is low"
-          description: "Less than 10% of host memory is available on {{ $labels.instance }}."
+          description: "Less than 10% of host memory is available on {{ $labels.instance }}; inspect container working sets and host memory pressure."
 
       - alert: HostFilesystemFilling
         expr: (node_filesystem_avail_bytes{fstype!~"tmpfs|overlay"} / node_filesystem_size_bytes{fstype!~"tmpfs|overlay"}) < 0.15
         for: 10m
         labels:
+          category: platform
           severity: warning
         annotations:
           summary: "Host filesystem is filling"
-          description: "Filesystem {{ $labels.mountpoint }} on {{ $labels.instance }} has less than 15% free space."
+          description: "Filesystem {{ $labels.mountpoint }} on {{ $labels.instance }} has less than 15% free space; inspect retention, logs, and telemetry disk usage."
 
-  - name: retail-application
-    interval: 30s
-    rules:
-      - alert: ApplicationHighErrorRate
-        expr: |
-          (
-            sum by (service_name) (rate(traces_span_metrics_calls_total{service_namespace="retail-store",status_code="STATUS_CODE_ERROR"}[5m]))
-            /
-            sum by (service_name) (rate(traces_span_metrics_calls_total{service_namespace="retail-store"}[5m]))
-          ) > 0.05
+      - alert: PrometheusRuleEvaluationFailures
+        expr: sum(increase(prometheus_rule_evaluation_failures_total[10m])) > 0
+        labels:
+          category: platform
+          severity: critical
+        annotations:
+          summary: "Prometheus rule evaluations are failing"
+          description: "Prometheus recorded a rule-evaluation failure in the last ten minutes; inspect Prometheus logs and the failing rule group before relying on alert results."
+
+      - alert: PrometheusNotificationErrors
+        expr: sum(increase(prometheus_notifications_errors_total[10m])) > 0
+        labels:
+          category: platform
+          severity: warning
+        annotations:
+          summary: "Prometheus notification errors occurred"
+          description: "Prometheus recorded notification errors in the last ten minutes; inspect the Alertmanager target and Prometheus notification logs."
+
+      - alert: PrometheusNotificationsDropped
+        expr: sum(increase(prometheus_notifications_dropped_total[10m])) > 0
+        labels:
+          category: platform
+          severity: critical
+        annotations:
+          summary: "Prometheus notifications were dropped"
+          description: "Prometheus dropped notifications in the last ten minutes; inspect Alertmanager reachability, queue pressure, and notification logs."
+
+      - alert: PrometheusTSDBCompactionFailures
+        expr: sum(increase(prometheus_tsdb_compactions_failed_total[10m])) > 0
+        labels:
+          category: platform
+          severity: critical
+        annotations:
+          summary: "Prometheus TSDB compaction failed"
+          description: "Prometheus recorded a TSDB compaction failure in the last ten minutes; inspect disk space, permissions, and Prometheus storage logs."
+
+      - alert: AlloyConfigLoadFailure
+        expr: sum(increase(alloy_config_load_failures_total[10m])) > 0
+        labels:
+          category: platform
+          severity: critical
+        annotations:
+          summary: "Grafana Alloy configuration failed to load"
+          description: "Alloy recorded a configuration-load failure in the last ten minutes; inspect Alloy logs and validate the deployed configuration before restarting it."
+
+      - alert: CAdvisorScrapeFailure
+        expr: max(container_scrape_error) > 0
         for: 5m
         labels:
-          severity: critical
-          team: application
+          category: platform
+          severity: warning
         annotations:
-          summary: "Application error rate is high"
-          description: "{{ $labels.service_name }} has exceeded 5% span errors for five minutes."
+          summary: "cAdvisor is reporting a container scrape failure"
+          description: "cAdvisor has reported a container scrape failure for five minutes; inspect cAdvisor logs and Docker/container health."
 
-      - alert: ApplicationHighP95SpanLatency
+      - alert: ContainerHighMemory
+        expr: |
+          (
+            100 *
+            sum by (container_label_com_docker_compose_service) (
+              container_memory_working_set_bytes{
+                container_label_com_docker_compose_project="observability-test",
+                container_label_com_docker_compose_service!=""
+              }
+            )
+            /
+            sum by (container_label_com_docker_compose_service) (
+              container_spec_memory_limit_bytes{
+                container_label_com_docker_compose_project="observability-test",
+                container_label_com_docker_compose_service!=""
+              } > 0
+            )
+          ) > 90
+        for: 10m
+        labels:
+          category: platform
+          severity: warning
+        annotations:
+          summary: "Observability container memory usage is high"
+          description: "Compose service {{ $labels.container_label_com_docker_compose_service }} has exceeded 90% of its configured cAdvisor memory limit for ten minutes; inspect its workload, logs, and memory limit."
+
+      - alert: LokiWALCorruption
+        expr: sum(increase(loki_ingester_wal_corruptions_total[10m])) > 0
+        labels:
+          category: platform
+          severity: critical
+        annotations:
+          summary: "Loki WAL corruption was detected"
+          description: "Loki recorded WAL corruption in the last ten minutes; inspect Loki logs and the telemetry disk before relying on recent log durability."
+
+      - alert: LokiWALDiskFull
+        expr: sum(increase(loki_ingester_wal_disk_full_failures_total[10m])) > 0
+        labels:
+          category: platform
+          severity: critical
+        annotations:
+          summary: "Loki WAL writes encountered a full disk"
+          description: "Loki recorded a WAL disk-full failure in the last ten minutes; inspect telemetry filesystem capacity and retention immediately."
+
+      - alert: LokiChunkFlushFailures
+        expr: sum(increase(loki_ingester_chunks_flush_failures_total[10m])) > 0
+        labels:
+          category: platform
+          severity: warning
+        annotations:
+          summary: "Loki chunk flushes are failing"
+          description: "Loki recorded chunk-flush failures in the last ten minutes; inspect Loki logs, object/filesystem storage, and disk capacity."
+
+  - name: application-alerts
+    interval: 30s
+    rules:
+      - alert: ApplicationServiceHighLatency
         expr: |
           histogram_quantile(
             0.95,
-            sum by (le, service_name, span_name) (
-              rate(traces_span_metrics_duration_seconds_bucket{service_namespace="retail-store"}[5m])
+            sum by (service_name, le) (
+              rate(
+                traces_span_metrics_duration_seconds_bucket{
+                  service_namespace="retail-store",
+                  span_kind="SPAN_KIND_SERVER"
+                }[5m]
+              )
             )
-          ) > 1.5
+          ) > 0.5
         for: 5m
         labels:
+          category: application
           severity: warning
           team: application
         annotations:
-          summary: "Application span latency is high"
-          description: "{{ $labels.service_name }} span {{ $labels.span_name }} has p95 latency above 1.5 seconds for five minutes."
+          summary: "Retail service P95 latency is high"
+          description: "{{ $labels.service_name }} has server-transaction P95 latency above 0.5 seconds for five minutes; inspect the slow spans and downstream dependencies. Observed P95: {{ $value }} seconds."
+
+      - alert: ApplicationServiceHighErrorRate
+        expr: |
+          100 *
+          sum by (service_name) (
+            rate(
+              traces_span_metrics_calls_total{
+                service_namespace="retail-store",
+                span_kind="SPAN_KIND_SERVER",
+                status_code="STATUS_CODE_ERROR"
+              }[5m]
+            )
+          )
+          /
+          clamp_min(
+            sum by (service_name) (
+              rate(
+                traces_span_metrics_calls_total{
+                  service_namespace="retail-store",
+                  span_kind="SPAN_KIND_SERVER"
+                }[5m]
+              )
+            ),
+            0.001
+          ) > 5
+        for: 5m
+        labels:
+          category: application
+          severity: critical
+          team: application
+        annotations:
+          summary: "Retail service error rate is high"
+          description: "{{ $labels.service_name }} has exceeded 5% failed server transactions for five minutes; inspect the affected service traces and correlated application logs. Observed error rate: {{ $value }}%."
+
+      - alert: ApplicationTransactionFailures
+        expr: |
+          sum by (service_name) (
+            increase(
+              traces_span_metrics_calls_total{
+                service_namespace="retail-store",
+                span_kind="SPAN_KIND_SERVER",
+                status_code="STATUS_CODE_ERROR"
+              }[5m]
+            )
+          ) > 0
+        labels:
+          category: application
+          severity: warning
+          team: application
+        annotations:
+          summary: "Retail service transaction failures detected"
+          description: "{{ $labels.service_name }} recorded {{ $value }} failed server transactions in the last five minutes; inspect the corresponding traces and application logs."

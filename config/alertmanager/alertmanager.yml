@@ -1,12 +1,27 @@
 global:
   resolve_timeout: 5m
+  slack_api_url_file: /run/secrets/slack_webhook
 
 route:
-  receiver: local-observer
+  receiver: slack-observer
   group_by: [alertname, job, instance]
   group_wait: 30s
   group_interval: 5m
   repeat_interval: 4h
 
 receivers:
-  - name: local-observer
+  - name: slack-observer
+    slack_configs:
+      - channel: "#octosight-alerts"
+        send_resolved: true
+        username: "OctoSight Alertmanager"
+        title: >-
+          [{{ .Status | toUpper }}] {{ .CommonLabels.alertname }}
+        text: >-
+          *Severity:* {{ .CommonLabels.severity }}
+          *Category:* {{ .CommonLabels.category }}
+          {{ range .Alerts }}
+          *Service:* {{ .Labels.service_name }}
+          *Summary:* {{ .Annotations.summary }}
+          *Description:* {{ .Annotations.description }}
+          {{ end }}

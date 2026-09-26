@@ -1,65 +1,106 @@
 # Verification record
 
-This document separates repository checks from deployment acceptance. A configuration file passing validation does not prove the Azure platform is deployed or sized correctly.
+This document is evidence, not the deployment guide. A repository check does
+not by itself prove that Azure infrastructure or a live platform exists.
 
-## A. Historical successful validation
+## A. Historical repository and local validation
 
-The following results are retained from the previous Linux/CI validation run. They are historical evidence, not a claim that Azure has been deployed:
+The following results are retained as historical evidence:
 
-- Terraform 1.15.6 formatting and AzureRM 5.5.0 schema validation pass. All seven mocked Terraform plan tests pass with container networking disabled: capacity/storage, networking/access, and rejection of open SSH, invalid IPv4, private-key input, unpinned images and invalid subscription IDs. These are not real Azure plans.
-- Root Docker Compose model parses successfully with `.env.example`.
-- All 27 offline tests pass, covering OTLP payloads, partial failures, exact log/metric/trace matching, target failures, saved-record verification, and capacity-generator contracts.
-- Prometheus configuration passes the pinned Prometheus 3.14.0 `promtool` validator.
-- Prometheus alert rules pass the pinned Prometheus 3.14.0 `promtool` validator; Alertmanager 0.27.0 loads its configuration successfully. The rules include platform/host checks plus application error-rate and p95 span-latency checks for the `retail-store` demo telemetry.
-- Loki 3.7.7, Tempo 3.0.3, and Alloy 1.19.2 accept their configurations using their actual container validators.
+- Terraform 1.15.6 formatting and AzureRM 5.5.0 schema validation passed in
+  the recorded validation run. Seven mocked Terraform plan tests passed with
+  container networking disabled. These are not real Azure plans.
+- The root Docker Compose model parsed successfully with the documented
+  environment inputs.
+- The recorded offline run executed 27 tests; 26 passed locally. One test,
+  `test_emit_record_can_be_verified_without_resending`, could not complete on
+  the Windows workstation because temporary-directory cleanup encountered a
+  Windows permission error. It must be rerun on Ubuntu or GitHub Actions before
+  final acceptance.
+- Prometheus, Alertmanager, Loki, Tempo, and Alloy configuration validation
+  passed in the recorded environment using their pinned service validators.
+- The five provisioned dashboard JSON files parsed successfully.
 
-## B. Current local validation
+## B. Historical platform smoke and telemetry evidence
 
-The current workstation validation was run without Azure access or Terraform apply:
+The local integration evidence below was captured on 2026-09-19. Docker
+Desktop supplied 8 CPUs and approximately 7.7 GiB RAM, so it is functional
+smoke evidence and not evidence for the Azure capacity target.
 
-- Docker Compose configuration passed.
-- Prometheus configuration and rules passed using the pinned `prom/prometheus:v3.14.0` image and explicit `promtool` entrypoint.
-- Alertmanager configuration passed.
-- Bash syntax checks passed for the repository shell scripts.
-- 26 automated tests passed locally. One test, `test_emit_record_can_be_verified_without_resending`, could not complete on this Windows workstation because its temporary-directory cleanup encountered a Windows permission error. It must be rerun on Ubuntu/GitHub Actions before final acceptance.
-- Grafana, Prometheus, Loki, Tempo, Alloy, Alertmanager, cAdvisor, and the five-service validation application were observed running locally. This does not validate Azure networking, disk mounting, or host systemd integration.
+- Grafana, Prometheus, Loki, Tempo, Alloy, cAdvisor, and Alertmanager
+  readiness passed.
+- All seven configured Prometheus jobs reported `up=1`; local Node Exporter
+  used the documented containerized test substitute.
+- Grafana's authenticated datasource API verified the provisioned Prometheus,
+  Loki, and Tempo definitions and backend connections.
+- Synthetic cumulative metrics, a unique OTLP log, and a parent/child trace
+  were accepted through Alloy and found in Prometheus, Loki, and Tempo.
+- A unique Docker stdout marker was collected by Alloy and found in Loki under
+  `source="docker"`.
+- After a normal full-stack stop/start, the original metrics, log, and trace
+  remained queryable without re-emission. No volumes were deleted.
+- The recorded five-second generator acknowledged 10 metric samples, 6 log
+  records, and 10 spans. This is not the one-hour capacity acceptance run.
+- `images.lock.yml` records the tested platform image digests.
+- Both Bash operating/firewall scripts passed syntax validation, and Git ignore
+  rules excluded local secrets, environment files, Terraform state, and
+  validation artifacts.
 
-The local integration evidence below was captured on 2026-09-19:
+## C. Historical Azure validation evidence
 
-Docker Desktop supplied 8 CPUs and approximately 7.7 GiB RAM. This is a functional smoke environment, not the 32 GiB Azure capacity target.
+The OctoSight monitoring environment was deployed in Central US with
+monitoring VNet `10.20.0.0/16` and monitoring VM private IP `10.20.0.4`. The
+VM was `Standard_E4as_v7` with a 64 GiB Standard SSD OS disk and a 256 GiB
+Premium SSD telemetry disk.
 
-- Grafana, Prometheus, Loki, Tempo, Alloy, cAdvisor, and Alertmanager readiness passed.
-- All seven configured Prometheus jobs reported `up=1`; local Node Exporter used the documented containerized test substitute.
-- Grafana's authenticated datasource API verified each provisioned definition and successfully checked all three backend connections.
-- Synthetic cumulative metrics, a unique OTLP log, and a parent/child trace were accepted through Alloy and their actual contents were found in Prometheus, Loki, and Tempo.
-- A unique Docker stdout marker was collected by Alloy and found in Loki under `source="docker"`.
-- After a normal full-stack stop/start, the original metrics, log, and trace were still queryable without re-emission. No volumes were deleted.
-- A five-second generator smoke run acknowledged 10 metric samples, 6 log records, and 10 spans. This is not the one-hour capacity acceptance run.
-- `images.lock.yml` records the seven tested platform image digests.
-- The external retail demo application ran as five healthy services: UI, catalog, cart, orders, and checkout. Its OTLP traces reached Tempo through Alloy, span-derived metrics reached Prometheus, and structured application logs were emitted with trace and span IDs for Loki correlation.
-- Prometheus loaded and evaluated `ApplicationHighErrorRate` and `ApplicationHighP95SpanLatency`; both were healthy and inactive during the normal smoke check.
-- The local endpoints returned HTTP 200 from Grafana health (`:13000/api/health`) and the demo UI (`:8888/`).
-- Both Bash operating/firewall scripts pass syntax validation, and Git ignore rules exclude local secrets, environment files, Terraform state, and validation artifacts.
-- The local validation stack was stopped after the final successful readiness check. Its containers and persistent test volumes are retained; no existing user images or data were removed.
+An independent validation workload ran in South Central US with application
+VNet `10.30.0.0/16` and application VM private IP `10.30.0.4`; VNet peering
+provided the private telemetry path. This workload was TEST/VALIDATION
+EVIDENCE ONLY. It is not part of OctoSight and is not required to reproduce
+the platform.
 
-The tests caught and corrected an Alloy gRPC exporter timeout setting placed in the wrong block, an HTTP client JSON content-negotiation omission, and a probe that incorrectly rejected empty `partialSuccess` acknowledgements. Actual rejected-record counts and warning messages still fail verification.
+Observed Azure validation included:
 
-## C. Azure validation still pending
+- OctoSight platform services, Node Exporter, cAdvisor, Prometheus target
+  health, and Grafana datasource/dashboard checks.
+- Application metrics, application logs in Loki, traces in Tempo, and
+  trace-derived metrics in Prometheus.
+- Alertmanager operation.
+- A controlled infrastructure failure in which the validation workload VM
+  became unavailable, its target went down, `MonitoringTargetDown` progressed
+  from Pending to Firing, Alertmanager received the alert, and recovery
+  cleared it.
+- A controlled checkout failure that produced HTTP 500, failed transaction
+  telemetry, and `ApplicationTransactionFailures` for the affected validation
+  service; Alertmanager received it.
+- Both FIRING and RESOLVED notifications in the configured `#octosight-alerts`
+  Slack channel. The webhook value is not recorded here.
 
-- Azure resource creation, actual host disk/firewall/systemd installation, and secure SSH access.
-- Real host journal collection and the full host Prometheus target.
-- Grafana datasource connectivity, all three OTLP paths, container logs, and restart persistence on Azure.
-- VM reboot, private-port reachability, cold backup/restore, and the capacity acceptance run.
+These observations validate the independent workload integration pattern; they
+do not make that workload a platform dependency.
 
-The current local run also showed expected Loki warnings while Alloy replayed Docker log files older than Loki's retention boundary. New application log records were accepted; the old records were dropped by Loki by design.
+## D. Current Azure state and pending acceptance
 
-Update this record only with observed results. Keep per-run synthetic records under ignored `validation-results/`, not in Git.
+Both Azure VMs are intentionally deallocated for cost control. Therefore this
+document does not claim that OctoSight services are currently running or
+healthy.
 
-No Azure resources have been created or validated by this record. Terraform validation is pending when Terraform CLI is available in the execution environment.
+The following live acceptance checks remain pending when the VM is next
+started:
+
+- host disk mount, firewall, persistent journal, and Node Exporter validation
+- real host and container Prometheus target health
+- Grafana datasource connectivity and configured OTLP paths
+- container log collection and restart persistence
+- VM reboot behavior, private-port reachability, cold backup/restore, and the
+  capacity acceptance run
+- a fresh validation of the current application alert-rule revision
+
+Update this record only with observed results from the applicable run.
 
 ## Repeat offline checks
 
-For infrastructure, initialize the pinned provider once (requires internet), then run these from `terraform/`. Validation and mocked tests do not require Azure credentials:
+From `terraform/`:
 
 ```text
 terraform init -backend=false
@@ -75,14 +116,27 @@ docker compose --env-file .env.example config --quiet
 python -m unittest discover -s tests -v
 ```
 
+If a tool is unavailable, report that check as pending rather than treating it
+as a configuration failure.
+
 ## Isolated Docker Desktop smoke setup
 
-`tests/compose.local.yml` merges with the deployment file but substitutes isolated named volumes, a generated test secret, a containerized Node Exporter, and loopback ports 13000/14317/14318. It uses the same backend/Alloy configurations. Its empty journal volume cannot validate an Ubuntu systemd journal, and Docker Desktop cannot validate Azure capacity or NSGs.
+`tests/compose.local.yml` merges with the deployment file but substitutes
+isolated named volumes, a generated test secret, a containerized Node Exporter,
+and loopback ports 13000/14317/14318. Its empty journal volume cannot validate
+an Ubuntu systemd journal, and Docker Desktop cannot validate Azure capacity
+or NSGs.
 
-Do not run it alongside the Azure-style local project: both intentionally use the documented `172.28.0.0/24` bridge subnet to preserve the exact Prometheus target configuration.
+Do not run it alongside the Azure-style local project: both intentionally use
+the documented `172.28.0.0/24` bridge subnet to preserve the exact Prometheus
+target configuration.
 
 ```text
 docker compose --env-file .env.example -f docker-compose.yml -f images.lock.yml -f tests/compose.local.yml -p observability-validation up -d
 ```
 
-Use a diagnostic container on the `observability-validation` network with this repository's `scripts` directory mounted at `/checks`, then run `/checks/verify.py --targets` and `/checks/telemetry_probe.py`. Finish with the matching Compose `stop` command. Keep validation volumes intact; normal verification never calls `down -v`.
+Use a diagnostic container on the `observability-validation` network with the
+repository's `scripts` directory mounted at `/checks`, then run
+`/checks/verify.py --targets` and `/checks/telemetry_probe.py`. Finish with the
+matching Compose `stop` command. Keep validation volumes intact; normal
+verification never calls `down -v`.

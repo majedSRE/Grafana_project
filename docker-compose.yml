@@ -182,6 +182,8 @@ services:
       - --config.file=/etc/alertmanager/alertmanager.yml
       - --storage.path=/alertmanager
       - --web.listen-address=0.0.0.0:9093
+    secrets:
+      - slack_webhook
     volumes:
       - type: bind
         source: ./config/alertmanager/alertmanager.yml
@@ -228,3 +230,5 @@ networks:
 secrets:
   grafana_admin_password:
     file: ${GRAFANA_ADMIN_PASSWORD_FILE:?Set GRAFANA_ADMIN_PASSWORD_FILE in .env}
+  slack_webhook:
+    file: ${SLACK_WEBHOOK_FILE:?Set SLACK_WEBHOOK_FILE in .env}

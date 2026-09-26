@@ -1,110 +1,134 @@
 {
   "annotations": {"list": []},
+  "description": "SRE-focused RED view of the retail microservices workload: request rate, error rate, latency, service inventory, dependencies, traces, and correlated application logs.",
   "editable": false,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
   "panels": [
     {
       "type": "text",
-      "title": "Microservices",
+      "title": "MICROSERVICES / RED",
       "gridPos": {"h": 2, "w": 24, "x": 0, "y": 0},
-      "options": {
-        "mode": "markdown",
-        "content": "Operational view of the retail journey. Start with service health, open a trace for the failing transaction, then use the trace ID to find the related Loki logs."
-      }
+      "options": {"mode": "markdown", "content": "Operational view of the retail journey using the RED method: monitor request rate, error rate, and latency first; then open a trace and correlate its trace ID with application logs."}
     },
     {
       "type": "stat",
-      "title": "Request rate",
+      "title": "Request Rate",
+      "description": "Server-span request rate for the selected retail services.",
       "gridPos": {"h": 5, "w": 6, "x": 0, "y": 2},
       "datasource": {"type": "prometheus", "uid": "prometheus"},
       "targets": [{"expr": "sum(rate(traces_span_metrics_calls_total{service_name=~\"$service\",span_kind=\"SPAN_KIND_SERVER\"}[5m]))", "refId": "A"}],
-      "fieldConfig": {"defaults": {"unit": "reqps", "decimals": 2}, "overrides": []},
-      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "value"}
+      "fieldConfig": {"defaults": {"unit": "reqps", "decimals": 2, "min": 0}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "value", "colorMode": "value", "justifyMode": "center"}
     },
     {
       "type": "stat",
-      "title": "Error rate",
+      "title": "Error Rate",
+      "description": "Percentage of selected server spans with OpenTelemetry error status.",
       "gridPos": {"h": 5, "w": 6, "x": 6, "y": 2},
       "datasource": {"type": "prometheus", "uid": "prometheus"},
-      "targets": [{"expr": "100 * sum(rate(traces_span_metrics_calls_total{service_name=~\"$service\",span_kind=\"SPAN_KIND_SERVER\",status_code=\"STATUS_CODE_ERROR\"}[5m])) / clamp_min(sum(rate(traces_span_metrics_calls_total{service_name=~\"$service\",span_kind=\"SPAN_KIND_SERVER\"}[5m])), 0.001)", "refId": "A"}],
-      "fieldConfig": {"defaults": {"unit": "percent", "decimals": 2, "color": {"mode": "thresholds"}}, "overrides": []},
-      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "value"}
+      "targets": [{"expr": "100 * (sum(rate(traces_span_metrics_calls_total{service_name=~\"$service\",span_kind=\"SPAN_KIND_SERVER\",status_code=\"STATUS_CODE_ERROR\"}[5m])) or vector(0)) / clamp_min(sum(rate(traces_span_metrics_calls_total{service_name=~\"$service\",span_kind=\"SPAN_KIND_SERVER\"}[5m])), 0.001)", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "percent", "decimals": 2, "min": 0, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 1}, {"color": "red", "value": 5}]}}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "value", "colorMode": "value", "justifyMode": "center"}
     },
     {
       "type": "stat",
-      "title": "p95 latency",
+      "title": "P95 Latency",
+      "description": "95th-percentile server-span duration for the selected retail services.",
       "gridPos": {"h": 5, "w": 6, "x": 12, "y": 2},
       "datasource": {"type": "prometheus", "uid": "prometheus"},
       "targets": [{"expr": "histogram_quantile(0.95, sum by (le) (rate(traces_span_metrics_duration_seconds_bucket{service_name=~\"$service\",span_kind=\"SPAN_KIND_SERVER\"}[5m])))", "refId": "A"}],
-      "fieldConfig": {"defaults": {"unit": "s", "decimals": 3}, "overrides": []},
-      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "value"}
+      "fieldConfig": {"defaults": {"unit": "s", "decimals": 3, "min": 0, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 1}, {"color": "red", "value": 1.5}]}}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "value", "colorMode": "value", "justifyMode": "center"}
     },
     {
       "type": "stat",
-      "title": "Services reporting",
+      "title": "Active services",
+      "description": "Distinct retail services reporting server spans in the selected time window.",
       "gridPos": {"h": 5, "w": 6, "x": 18, "y": 2},
       "datasource": {"type": "prometheus", "uid": "prometheus"},
       "targets": [{"expr": "count(count by (service_name) (traces_span_metrics_calls_total{service_name=~\"$service\",span_kind=\"SPAN_KIND_SERVER\"}))", "refId": "A"}],
-      "fieldConfig": {"defaults": {"unit": "short", "decimals": 0}, "overrides": []},
-      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "value"}
+      "fieldConfig": {"defaults": {"unit": "short", "decimals": 0, "min": 0}, "overrides": []},
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "value", "colorMode": "value", "justifyMode": "center"}
     },
     {
       "type": "timeseries",
-      "title": "Request rate by service",
-      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 7},
+      "title": "Request Rate by Service",
+      "description": "RED request volume by retail service.",
+      "gridPos": {"h": 8, "w": 8, "x": 0, "y": 7},
       "datasource": {"type": "prometheus", "uid": "prometheus"},
       "targets": [{"expr": "sum by (service_name) (rate(traces_span_metrics_calls_total{service_name=~\"$service\",span_kind=\"SPAN_KIND_SERVER\"}[5m]))", "legendFormat": "{{service_name}}", "refId": "A"}],
-      "fieldConfig": {"defaults": {"unit": "reqps"}, "overrides": []},
-      "options": {"legend": {"displayMode": "list", "placement": "bottom"}}
+      "fieldConfig": {"defaults": {"unit": "reqps", "decimals": 2, "min": 0}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi"}}
     },
     {
       "type": "timeseries",
-      "title": "Latency p95 by service",
-      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 7},
+      "title": "Error Rate by Service",
+      "description": "Each service's own error percentage; the denominator is that same service's server-span request rate.",
+      "gridPos": {"h": 8, "w": 8, "x": 8, "y": 7},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"expr": "100 * (sum by (service_name) (rate(traces_span_metrics_calls_total{service_name=~\"$service\",span_kind=\"SPAN_KIND_SERVER\",status_code=\"STATUS_CODE_ERROR\"}[5m])) or on (service_name) (sum by (service_name) (rate(traces_span_metrics_calls_total{service_name=~\"$service\",span_kind=\"SPAN_KIND_SERVER\"}[5m])) * 0)) / clamp_min(sum by (service_name) (rate(traces_span_metrics_calls_total{service_name=~\"$service\",span_kind=\"SPAN_KIND_SERVER\"}[5m])), 0.001)", "legendFormat": "{{service_name}}", "refId": "A"}],
+      "fieldConfig": {"defaults": {"unit": "percent", "decimals": 2, "min": 0, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 1}, {"color": "red", "value": 5}]}}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi"}}
+    },
+    {
+      "type": "timeseries",
+      "title": "P95 Latency by Service",
+      "description": "95th-percentile server-span duration by retail service.",
+      "gridPos": {"h": 8, "w": 8, "x": 16, "y": 7},
       "datasource": {"type": "prometheus", "uid": "prometheus"},
       "targets": [{"expr": "histogram_quantile(0.95, sum by (le, service_name) (rate(traces_span_metrics_duration_seconds_bucket{service_name=~\"$service\",span_kind=\"SPAN_KIND_SERVER\"}[5m])))", "legendFormat": "{{service_name}}", "refId": "A"}],
-      "fieldConfig": {"defaults": {"unit": "s", "decimals": 3}, "overrides": []},
-      "options": {"legend": {"displayMode": "list", "placement": "bottom"}}
+      "fieldConfig": {"defaults": {"unit": "s", "decimals": 3, "min": 0, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 1}, {"color": "red", "value": 1.5}]}}, "overrides": []},
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi"}}
     },
     {
       "type": "table",
-      "title": "Service request summary",
-      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 15},
+      "title": "Service Inventory",
+      "description": "Current service-level RED summary. Values are joined by service_name using Grafana transformations.",
+      "gridPos": {"h": 9, "w": 24, "x": 0, "y": 15},
       "datasource": {"type": "prometheus", "uid": "prometheus"},
       "targets": [
         {"expr": "sum by (service_name) (rate(traces_span_metrics_calls_total{service_name=~\"$service\",span_kind=\"SPAN_KIND_SERVER\"}[5m]))", "legendFormat": "{{service_name}}", "refId": "A", "format": "table", "instant": true},
-        {"expr": "sum by (service_name) (rate(traces_span_metrics_calls_total{service_name=~\"$service\",span_kind=\"SPAN_KIND_SERVER\",status_code=\"STATUS_CODE_ERROR\"}[5m]))", "legendFormat": "{{service_name}} errors", "refId": "B", "format": "table", "instant": true}
+        {"expr": "100 * (sum by (service_name) (rate(traces_span_metrics_calls_total{service_name=~\"$service\",span_kind=\"SPAN_KIND_SERVER\",status_code=\"STATUS_CODE_ERROR\"}[5m])) or on (service_name) (sum by (service_name) (rate(traces_span_metrics_calls_total{service_name=~\"$service\",span_kind=\"SPAN_KIND_SERVER\"}[5m])) * 0)) / clamp_min(sum by (service_name) (rate(traces_span_metrics_calls_total{service_name=~\"$service\",span_kind=\"SPAN_KIND_SERVER\"}[5m])), 0.001)", "legendFormat": "{{service_name}}", "refId": "B", "format": "table", "instant": true},
+        {"expr": "histogram_quantile(0.95, sum by (le, service_name) (rate(traces_span_metrics_duration_seconds_bucket{service_name=~\"$service\",span_kind=\"SPAN_KIND_SERVER\"}[5m])))", "legendFormat": "{{service_name}}", "refId": "C", "format": "table", "instant": true}
       ],
+      "transformations": [
+        {"id": "joinByField", "options": {"byField": "service_name", "mode": "outer"}},
+        {"id": "organize", "options": {"excludeByName": {"Time": true}, "renameByName": {"service_name": "Service", "Value #A": "Request rate", "Value #B": "Error rate", "Value #C": "P95 latency"}}}
+      ],
+      "fieldConfig": {"defaults": {"decimals": 2}, "overrides": [{"matcher": {"id": "byName", "options": "Request rate"}, "properties": [{"id": "unit", "value": "reqps"}]}, {"matcher": {"id": "byName", "options": "Error rate"}, "properties": [{"id": "unit", "value": "percent"}]}, {"matcher": {"id": "byName", "options": "P95 latency"}, "properties": [{"id": "unit", "value": "s"}]}]},
       "options": {"showHeader": true, "cellHeight": "sm"}
     },
     {
       "type": "table",
-      "title": "Service dependencies",
-      "gridPos": {"h": 7, "w": 24, "x": 0, "y": 23},
+      "title": "Service Dependencies",
+      "description": "Dependency edges derived from service graph metrics. Labels are preserved as returned by the existing pipeline.",
+      "gridPos": {"h": 7, "w": 24, "x": 0, "y": 24},
       "datasource": {"type": "prometheus", "uid": "prometheus"},
       "targets": [{"expr": "sum by (client, server, connection_type) (rate(traces_service_graph_request_total[5m]))", "refId": "A", "format": "table", "instant": true}],
       "options": {"showHeader": true, "cellHeight": "sm"}
     },
     {
       "type": "traces",
-      "title": "Recent traces and transactions",
-      "gridPos": {"h": 11, "w": 12, "x": 0, "y": 30},
+      "title": "Recent Retail Traces",
+      "description": "Recent traces from the known retail services in the retail-store namespace.",
+      "gridPos": {"h": 11, "w": 12, "x": 0, "y": 31},
       "datasource": {"type": "tempo", "uid": "tempo"},
-      "targets": [{"queryType": "traceql", "query": "{ resource.service.name =~ \"$service\" }", "refId": "A"}],
+      "targets": [{"queryType": "traceql", "query": "{ resource.service.namespace = \"retail-store\" && resource.service.name =~ \"${service:regex}\" }", "refId": "A"}],
       "options": {"showTable": true, "showSearch": true, "showTags": true}
     },
     {
       "type": "logs",
-      "title": "Application logs",
-      "gridPos": {"h": 11, "w": 12, "x": 12, "y": 30},
+      "title": "Application Logs",
+      "description": "Docker-collected retail-store application logs. The working query intentionally keeps all five services because Loki exposes short service labels (ui, catalog, cart, checkout, orders), while the preserved dashboard variable uses retail-* names; direct interpolation would mismatch them.",
+      "gridPos": {"h": 11, "w": 12, "x": 12, "y": 31},
       "datasource": {"type": "loki", "uid": "loki"},
       "targets": [{"expr": "{log_type=\"application\",application=\"retail-store\",service=~\"ui|catalog|cart|checkout|orders\"}", "refId": "A"}],
       "options": {"showTime": true, "showLabels": false, "showCommonLabels": false, "wrapLines": true, "sortOrder": "Descending"}
     }
   ],
   "schemaVersion": 39,
-  "tags": ["observability", "microservices", "apm"],
+  "tags": ["observability", "microservices", "apm", "red"],
   "templating": {
     "list": [
       {
@@ -121,7 +145,9 @@
     ]
   },
   "time": {"from": "now-1h", "to": "now"},
+  "timepicker": {"refresh_intervals": ["30s", "1m", "5m", "15m"]},
+  "refresh": "30s",
   "title": "Microservices Overview",
   "uid": "microservices-overview",
-  "version": 3
+  "version": 5
 }
