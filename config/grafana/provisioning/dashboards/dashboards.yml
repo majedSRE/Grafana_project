@@ -1,11 +1,20 @@
 apiVersion: 1
 
 providers:
-  - name: observability-platform
+  - name: octosight-platform
     orgId: 1
-    folder: Observability Platform
+    folder: OctoSight Platform
     type: file
     disableDeletion: true
     editable: false
     options:
-      path: /etc/grafana/provisioning/dashboards
+      path: /etc/grafana/provisioning/dashboards/platform
+
+  - name: monitored-assets
+    orgId: 1
+    folder: Monitored Assets
+    type: file
+    disableDeletion: true
+    editable: false
+    options:
+      path: /etc/grafana/provisioning/dashboards/monitored-assets
