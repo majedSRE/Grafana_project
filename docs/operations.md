@@ -35,13 +35,13 @@ in a command copied into chat.
 
 Current platform rules and thresholds:
 
-- `MonitoringTargetDown` — any scrape target down for two minutes.
-- `MonitoringBackendDown` — expected backend scrape series absent for two
-  minutes.
-- `HostHighCpu` — host CPU above 85% for ten minutes.
-- `HostLowMemory` — less than 10% host memory available for five minutes.
-- `HostFilesystemFilling` — less than 15% filesystem space available for ten
-  minutes, excluding `tmpfs` and `overlay`.
+- `MonitoringTargetDown` / Monitoring Target Down — Prometheus cannot scrape
+  an OctoSight platform target for two minutes. This indicates target
+  unavailability, not proof that a process or container stopped.
+- The former broad backend-absence alert has been removed; use Monitoring
+  Target Down for scoped platform scrape-target availability.
+- Platform CPU, memory, and disk rules cover CPU or memory utilization above
+  90%, disk warning above 80% through 90%, and disk critical above 90%.
 - `PrometheusRuleEvaluationFailures` — a rule-evaluation failure recorded in
   the last ten minutes.
 - `PrometheusNotificationErrors` — a notification error recorded in the last
@@ -62,15 +62,32 @@ Current platform rules and thresholds:
 - `LokiChunkFlushFailures` — a Loki chunk-flush failure recorded in the last
   ten minutes.
 
+External asset rules require `monitoring_scope="asset"`:
+
+- `AssetServerDown` / Server Down — Prometheus cannot scrape an external
+  monitored Linux asset for two minutes. It does not prove that a process or
+  container stopped.
+- `AssetRecentlyRebooted` / Server Recently Rebooted — Node Exporter reports
+  a boot within the previous 15 minutes.
+- `AssetHighCPUUtilization` / High CPU Utilization — CPU utilization above 90%
+  for ten minutes.
+- `AssetHighMemoryUtilization` / High Memory Utilization — memory utilization
+  above 90% for five minutes.
+- `AssetDiskUtilizationWarning` / Disk Utilization Warning — disk utilization
+  above 80% and no more than 90% for ten minutes.
+- `AssetDiskUtilizationCritical` / Disk Utilization Critical — disk utilization
+  above 90% for five minutes.
+
 Application rules are generic and require an appropriately instrumented
 workload; they are not a platform dependency:
 
-- `ApplicationServiceHighErrorRate` — more than 5% failed server transactions
-  for five minutes, independently grouped by `service_name`.
-- `ApplicationServiceHighLatency` — server-transaction P95 latency above 0.5
-  seconds for five minutes, independently grouped by `service_name`.
-- `ApplicationTransactionFailures` — at least one failed server transaction in
-  the most recent five-minute window, independently grouped by `service_name`.
+- `ApplicationServiceHighLatency` / High Service Latency — server-transaction
+  P95 latency above 0.5 seconds for five minutes, grouped by `service_name`.
+- `ApplicationServiceHighErrorRate` / High Error Rate — more than 5% failed
+  server transactions for five minutes, grouped by `service_name`.
+- `ApplicationTransactionFailures` / Transaction Failure — at least one failed
+  server transaction in the most recent five-minute window, grouped by
+  `service_name`.
 
 Before testing alerts, verify normal telemetry first. Then inspect Prometheus
 and Alertmanager state without changing the rules:

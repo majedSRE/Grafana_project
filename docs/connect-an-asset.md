@@ -34,9 +34,16 @@ scrape_configs:
     static_configs:
       - targets: ["<WORKLOAD_PRIVATE_IP>:9100"]
         labels:
+          monitoring_scope: asset
           server: "<SERVER_NAME>"
           environment: "<ENVIRONMENT>"
 ```
+
+OctoSight's own Prometheus scrape targets carry
+`monitoring_scope: platform`. External Linux assets must carry
+`monitoring_scope: asset` so platform and asset alert rules remain separate.
+Keep the asset's `server` and `environment` values stable and do not use a
+retail-demo-specific name in this reusable integration pattern.
 
 The target must be network-reachable and the exporter port must be restricted
 to the required source. Review the change, then validate from
