@@ -20,7 +20,7 @@ storage:
     out_of_order_time_window: 5m
 
 rule_files:
-  - /etc/prometheus/alerts.yml
+  - /etc/prometheus/alerts/*.yml
 
 alerting:
   alertmanagers:

@@ -1,0 +1,185 @@
+# Monitored Asset alerts cover connected infrastructure and application/workload health.
+groups:
+  - name: Monitored Asset Alerts
+    interval: 30s
+    rules:
+      - alert: Server Down
+        expr: up{monitoring_scope="asset"} == 0
+        for: 2m
+        labels:
+          category: asset
+          severity: critical
+        annotations:
+          summary: "The monitored server is unreachable."
+          description: "External monitored server {{ $labels.server }} at {{ $labels.instance }} has been unavailable for more than two minutes; inspect the asset host, exporter, and network path."
+
+      - alert: Server Recently Rebooted
+        expr: |
+          (
+            time() - node_boot_time_seconds{monitoring_scope="asset"} < 900
+          )
+          and
+          (
+            time() - node_boot_time_seconds{monitoring_scope="asset"} >= 0
+          )
+        labels:
+          category: asset
+          severity: info
+        annotations:
+          summary: "The monitored server recently rebooted."
+          description: "External monitored server {{ $labels.server }} booted within the last 15 minutes; confirm the reboot was expected."
+
+      - alert: High CPU Utilization
+        expr: 100 - (avg by (instance, server, environment, job, monitoring_scope) (rate(node_cpu_seconds_total{monitoring_scope="asset", mode="idle"}[5m])) * 100) > 90
+        for: 10m
+        labels:
+          category: asset
+          severity: warning
+        annotations:
+          summary: "CPU utilization has remained above the configured threshold."
+          description: "External monitored server {{ $labels.server }} CPU utilization has exceeded 90% for ten minutes; inspect host processes and workload consumers."
+
+      - alert: High Memory Utilization
+        expr: 100 * (1 - node_memory_MemAvailable_bytes{monitoring_scope="asset"} / node_memory_MemTotal_bytes{monitoring_scope="asset"}) > 90
+        for: 5m
+        labels:
+          category: asset
+          severity: warning
+        annotations:
+          summary: "Memory utilization has remained above the configured threshold."
+          description: "External monitored server {{ $labels.server }} memory utilization has exceeded 90% for five minutes; inspect workload memory pressure."
+
+      - alert: Disk Utilization Warning
+        expr: |
+          (
+            100 * (
+              1 -
+              node_filesystem_avail_bytes{
+                monitoring_scope="asset",
+                fstype!~"tmpfs|devtmpfs|overlay|squashfs|proc|sysfs|cgroup|cgroup2|tracefs|debugfs|securityfs|pstore|autofs|mqueue|hugetlbfs|fusectl|configfs|ramfs"
+              }
+              /
+              node_filesystem_size_bytes{
+                monitoring_scope="asset",
+                fstype!~"tmpfs|devtmpfs|overlay|squashfs|proc|sysfs|cgroup|cgroup2|tracefs|debugfs|securityfs|pstore|autofs|mqueue|hugetlbfs|fusectl|configfs|ramfs"
+              }
+            )
+          ) > 80
+          and
+          (
+            100 * (
+              1 -
+              node_filesystem_avail_bytes{
+                monitoring_scope="asset",
+                fstype!~"tmpfs|devtmpfs|overlay|squashfs|proc|sysfs|cgroup|cgroup2|tracefs|debugfs|securityfs|pstore|autofs|mqueue|hugetlbfs|fusectl|configfs|ramfs"
+              }
+              /
+              node_filesystem_size_bytes{
+                monitoring_scope="asset",
+                fstype!~"tmpfs|devtmpfs|overlay|squashfs|proc|sysfs|cgroup|cgroup2|tracefs|debugfs|securityfs|pstore|autofs|mqueue|hugetlbfs|fusectl|configfs|ramfs"
+              }
+            )
+          ) <= 90
+        for: 10m
+        labels:
+          category: asset
+          severity: warning
+        annotations:
+          summary: "Monitored asset disk utilization is in the warning range."
+          description: "External monitored server {{ $labels.server }} filesystem {{ $labels.mountpoint }} is more than 80% utilized but not above 90%; inspect disk growth and retention."
+
+      - alert: Disk Utilization Critical
+        expr: |
+          100 * (
+            1 -
+            node_filesystem_avail_bytes{
+              monitoring_scope="asset",
+              fstype!~"tmpfs|devtmpfs|overlay|squashfs|proc|sysfs|cgroup|cgroup2|tracefs|debugfs|securityfs|pstore|autofs|mqueue|hugetlbfs|fusectl|configfs|ramfs"
+            }
+            /
+            node_filesystem_size_bytes{
+              monitoring_scope="asset",
+              fstype!~"tmpfs|devtmpfs|overlay|squashfs|proc|sysfs|cgroup|cgroup2|tracefs|debugfs|securityfs|pstore|autofs|mqueue|hugetlbfs|fusectl|configfs|ramfs"
+            }
+          ) > 90
+        for: 5m
+        labels:
+          category: asset
+          severity: critical
+        annotations:
+          summary: "Monitored asset disk utilization is in the critical range."
+          description: "External monitored server {{ $labels.server }} filesystem {{ $labels.mountpoint }} is more than 90% utilized; inspect disk capacity immediately."
+
+      - alert: High Service Latency
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (service_name, le) (
+              rate(
+                traces_span_metrics_duration_seconds_bucket{
+                  service_namespace="retail-store",
+                  span_kind="SPAN_KIND_SERVER"
+                }[5m]
+              )
+            )
+          ) > 0.5
+        for: 5m
+        labels:
+          category: application
+          severity: warning
+          team: application
+        annotations:
+          summary: "Application service latency is high."
+          description: "{{ $labels.service_name }} has server-transaction P95 latency above 0.5 seconds for five minutes; inspect the slow spans and downstream dependencies. Observed P95: {{ $value }} seconds."
+
+      - alert: High Error Rate
+        expr: |
+          100 *
+          sum by (service_name) (
+            rate(
+              traces_span_metrics_calls_total{
+                service_namespace="retail-store",
+                span_kind="SPAN_KIND_SERVER",
+                status_code="STATUS_CODE_ERROR"
+              }[5m]
+            )
+          )
+          /
+          clamp_min(
+            sum by (service_name) (
+              rate(
+                traces_span_metrics_calls_total{
+                  service_namespace="retail-store",
+                  span_kind="SPAN_KIND_SERVER"
+                }[5m]
+              )
+            ),
+            0.001
+          ) > 5
+        for: 5m
+        labels:
+          category: application
+          severity: critical
+          team: application
+        annotations:
+          summary: "Application service error rate is high."
+          description: "{{ $labels.service_name }} has exceeded 5% failed server transactions for five minutes; inspect the affected service traces and correlated application logs. Observed error rate: {{ $value }}%."
+
+      - alert: Transaction Failure
+        expr: |
+          sum by (service_name) (
+            increase(
+              traces_span_metrics_calls_total{
+                service_namespace="retail-store",
+                span_kind="SPAN_KIND_SERVER",
+                status_code="STATUS_CODE_ERROR"
+              }[5m]
+            )
+          ) > 0
+        labels:
+          category: application
+          severity: warning
+          team: application
+        annotations:
+          summary: "An application transaction failed."
+          description: "{{ $labels.service_name }} recorded {{ $value }} failed server transactions in the last five minutes; inspect the corresponding traces and application logs."

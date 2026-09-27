@@ -27,7 +27,7 @@ The self-monitoring jobs are `prometheus`, `linux-server`, `cadvisor`,
 
 ## Alerting scope and verification
 
-Prometheus evaluates `config/prometheus/alerts.yml` and forwards firing alerts
+Prometheus evaluates `config/prometheus/alerts/*.yml` and forwards firing alerts
 to Alertmanager at `alertmanager:9093`. The current receiver is
 `slack-observer`; it uses the operator-provided Slack webhook file configured
 through `SLACK_WEBHOOK_FILE`. Never put the webhook URL in the repository or
@@ -35,57 +35,57 @@ in a command copied into chat.
 
 Current platform rules and thresholds:
 
-- `MonitoringTargetDown` / Monitoring Target Down — Prometheus cannot scrape
+- `Monitoring Target Down` — Prometheus cannot scrape
   an OctoSight platform target for two minutes. This indicates target
   unavailability, not proof that a process or container stopped.
 - The former broad backend-absence alert has been removed; use Monitoring
   Target Down for scoped platform scrape-target availability.
 - Platform CPU, memory, and disk rules cover CPU or memory utilization above
   90%, disk warning above 80% through 90%, and disk critical above 90%.
-- `PrometheusRuleEvaluationFailures` — a rule-evaluation failure recorded in
+- `Prometheus Rule Evaluation Failures` — a rule-evaluation failure recorded in
   the last ten minutes.
-- `PrometheusNotificationErrors` — a notification error recorded in the last
+- `Prometheus Notification Errors` — a notification error recorded in the last
   ten minutes.
-- `PrometheusNotificationsDropped` — a notification dropped in the last ten
+- `Prometheus Notifications Dropped` — a notification dropped in the last ten
   minutes.
-- `PrometheusTSDBCompactionFailures` — a TSDB compaction failure recorded in
+- `Prometheus TSDB Compaction Failures` — a TSDB compaction failure recorded in
   the last ten minutes.
-- `AlloyConfigLoadFailure` — an Alloy configuration-load failure recorded in
+- `Grafana Alloy Configuration Load Failure` — an Alloy configuration-load failure recorded in
   the last ten minutes.
-- `CAdvisorScrapeFailure` — cAdvisor reports a scrape error for five minutes.
-- `ContainerHighMemory` — an observability Compose service exceeds 90% of its
+- `cAdvisor Scrape Failure` — cAdvisor reports a scrape error for five minutes.
+- `Platform Container High Memory` — an observability Compose service exceeds 90% of its
   configured cAdvisor memory limit for ten minutes.
-- `LokiWALCorruption` — a Loki WAL corruption recorded in the last ten
+- `Loki WAL Corruption` — a Loki WAL corruption recorded in the last ten
   minutes.
-- `LokiWALDiskFull` — a Loki WAL disk-full failure recorded in the last ten
+- `Loki WAL Disk Full` — a Loki WAL disk-full failure recorded in the last ten
   minutes.
-- `LokiChunkFlushFailures` — a Loki chunk-flush failure recorded in the last
+- `Loki Chunk Flush Failures` — a Loki chunk-flush failure recorded in the last
   ten minutes.
 
 External asset rules require `monitoring_scope="asset"`:
 
-- `AssetServerDown` / Server Down — Prometheus cannot scrape an external
+- `Server Down` — Prometheus cannot scrape an external
   monitored Linux asset for two minutes. It does not prove that a process or
   container stopped.
-- `AssetRecentlyRebooted` / Server Recently Rebooted — Node Exporter reports
+- `Server Recently Rebooted` — Node Exporter reports
   a boot within the previous 15 minutes.
-- `AssetHighCPUUtilization` / High CPU Utilization — CPU utilization above 90%
+- `High CPU Utilization` — CPU utilization above 90%
   for ten minutes.
-- `AssetHighMemoryUtilization` / High Memory Utilization — memory utilization
+- `High Memory Utilization` — memory utilization
   above 90% for five minutes.
-- `AssetDiskUtilizationWarning` / Disk Utilization Warning — disk utilization
+- `Disk Utilization Warning` — disk utilization
   above 80% and no more than 90% for ten minutes.
-- `AssetDiskUtilizationCritical` / Disk Utilization Critical — disk utilization
+- `Disk Utilization Critical` — disk utilization
   above 90% for five minutes.
 
 Application rules are generic and require an appropriately instrumented
 workload; they are not a platform dependency:
 
-- `ApplicationServiceHighLatency` / High Service Latency — server-transaction
+- `High Service Latency` — server-transaction
   P95 latency above 0.5 seconds for five minutes, grouped by `service_name`.
-- `ApplicationServiceHighErrorRate` / High Error Rate — more than 5% failed
+- `High Error Rate` — more than 5% failed
   server transactions for five minutes, grouped by `service_name`.
-- `ApplicationTransactionFailures` / Transaction Failure — at least one failed
+- `Transaction Failure` — at least one failed
   server transaction in the most recent five-minute window, grouped by
   `service_name`.
 

@@ -48,4 +48,4 @@ jobs:
           docker run --rm --entrypoint promtool \
             -v "$PWD/config/prometheus:/etc/prometheus:ro" \
             prom/prometheus:v3.14.0 \
-            check rules /etc/prometheus/alerts.yml
+            check rules /etc/prometheus/alerts/platform.yml /etc/prometheus/alerts/monitored-assets.yml

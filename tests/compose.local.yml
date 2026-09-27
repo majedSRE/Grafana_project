@@ -25,7 +25,7 @@ services:
         condition: service_completed_successfully
     volumes: !override
       - ./config/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - ./config/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - ./config/prometheus/alerts:/etc/prometheus/alerts:ro
       - qa-prometheus:/prometheus
 
   grafana:

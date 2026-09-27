@@ -39,8 +39,8 @@ services:
         bind:
           create_host_path: false
       - type: bind
-        source: ./config/prometheus/alerts.yml
-        target: /etc/prometheus/alerts.yml
+        source: ./config/prometheus/alerts
+        target: /etc/prometheus/alerts
         read_only: true
         bind:
           create_host_path: false

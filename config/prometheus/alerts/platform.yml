@@ -1,0 +1,213 @@
+# Platform alerts protect the OctoSight monitoring platform itself.
+groups:
+  - name: Platform Alerts
+    interval: 30s
+    rules:
+      - alert: Monitoring Target Down
+        expr: up{monitoring_scope="platform"} == 0
+        for: 2m
+        labels:
+          category: platform
+          severity: critical
+        annotations:
+          summary: "The OctoSight platform target is unreachable."
+          description: "{{ $labels.job }} at {{ $labels.instance }} has been unavailable for more than two minutes; inspect the target, service logs, and network path."
+
+      - alert: Platform High CPU Utilization
+        expr: 100 - (avg by (instance, server, environment, job, monitoring_scope) (rate(node_cpu_seconds_total{job="linux-server", monitoring_scope="platform", mode="idle"}[5m])) * 100) > 90
+        for: 10m
+        labels:
+          category: platform
+          severity: warning
+        annotations:
+          summary: "Platform CPU utilization has remained above the configured threshold."
+          description: "Platform CPU utilization on {{ $labels.instance }} has exceeded 90% for ten minutes; inspect host processes and platform container CPU consumers."
+
+      - alert: Platform High Memory Utilization
+        expr: 100 * (1 - node_memory_MemAvailable_bytes{job="linux-server", monitoring_scope="platform"} / node_memory_MemTotal_bytes{job="linux-server", monitoring_scope="platform"}) > 90
+        for: 5m
+        labels:
+          category: platform
+          severity: warning
+        annotations:
+          summary: "Platform memory utilization has remained above the configured threshold."
+          description: "Platform memory utilization on {{ $labels.instance }} has exceeded 90% for five minutes; inspect platform container working sets and host memory pressure."
+
+      - alert: Platform Disk Utilization Warning
+        expr: |
+          (
+            100 * (
+              1 -
+              node_filesystem_avail_bytes{
+                job="linux-server",
+                monitoring_scope="platform",
+                fstype!~"tmpfs|devtmpfs|overlay|squashfs|proc|sysfs|cgroup|cgroup2|tracefs|debugfs|securityfs|pstore|autofs|mqueue|hugetlbfs|fusectl|configfs|ramfs"
+              }
+              /
+              node_filesystem_size_bytes{
+                job="linux-server",
+                monitoring_scope="platform",
+                fstype!~"tmpfs|devtmpfs|overlay|squashfs|proc|sysfs|cgroup|cgroup2|tracefs|debugfs|securityfs|pstore|autofs|mqueue|hugetlbfs|fusectl|configfs|ramfs"
+              }
+            )
+          ) > 80
+          and
+          (
+            100 * (
+              1 -
+              node_filesystem_avail_bytes{
+                job="linux-server",
+                monitoring_scope="platform",
+                fstype!~"tmpfs|devtmpfs|overlay|squashfs|proc|sysfs|cgroup|cgroup2|tracefs|debugfs|securityfs|pstore|autofs|mqueue|hugetlbfs|fusectl|configfs|ramfs"
+              }
+              /
+              node_filesystem_size_bytes{
+                job="linux-server",
+                monitoring_scope="platform",
+                fstype!~"tmpfs|devtmpfs|overlay|squashfs|proc|sysfs|cgroup|cgroup2|tracefs|debugfs|securityfs|pstore|autofs|mqueue|hugetlbfs|fusectl|configfs|ramfs"
+              }
+            )
+          ) <= 90
+        for: 10m
+        labels:
+          category: platform
+          severity: warning
+        annotations:
+          summary: "Platform disk utilization is in the warning range."
+          description: "Platform filesystem {{ $labels.mountpoint }} on {{ $labels.instance }} is more than 80% utilized but not above 90%; inspect retention, logs, and telemetry disk usage."
+
+      - alert: Platform Disk Utilization Critical
+        expr: |
+          100 * (
+            1 -
+            node_filesystem_avail_bytes{
+              job="linux-server",
+              monitoring_scope="platform",
+              fstype!~"tmpfs|devtmpfs|overlay|squashfs|proc|sysfs|cgroup|cgroup2|tracefs|debugfs|securityfs|pstore|autofs|mqueue|hugetlbfs|fusectl|configfs|ramfs"
+            }
+            /
+            node_filesystem_size_bytes{
+              job="linux-server",
+              monitoring_scope="platform",
+              fstype!~"tmpfs|devtmpfs|overlay|squashfs|proc|sysfs|cgroup|cgroup2|tracefs|debugfs|securityfs|pstore|autofs|mqueue|hugetlbfs|fusectl|configfs|ramfs"
+            }
+          ) > 90
+        for: 5m
+        labels:
+          category: platform
+          severity: critical
+        annotations:
+          summary: "Platform disk utilization is in the critical range."
+          description: "Platform filesystem {{ $labels.mountpoint }} on {{ $labels.instance }} is more than 90% utilized; inspect retention, logs, and telemetry disk capacity immediately."
+
+      - alert: Prometheus Rule Evaluation Failures
+        expr: sum(increase(prometheus_rule_evaluation_failures_total[10m])) > 0
+        labels:
+          category: platform
+          severity: critical
+        annotations:
+          summary: "Prometheus rule evaluations are failing."
+          description: "Prometheus recorded a rule-evaluation failure in the last ten minutes; inspect Prometheus logs and the failing rule group before relying on alert results."
+
+      - alert: Prometheus Notification Errors
+        expr: sum(increase(prometheus_notifications_errors_total[10m])) > 0
+        labels:
+          category: platform
+          severity: warning
+        annotations:
+          summary: "Prometheus notification errors occurred."
+          description: "Prometheus recorded notification errors in the last ten minutes; inspect the Alertmanager target and Prometheus notification logs."
+
+      - alert: Prometheus Notifications Dropped
+        expr: sum(increase(prometheus_notifications_dropped_total[10m])) > 0
+        labels:
+          category: platform
+          severity: critical
+        annotations:
+          summary: "Prometheus notifications were dropped."
+          description: "Prometheus dropped notifications in the last ten minutes; inspect Alertmanager reachability, queue pressure, and notification logs."
+
+      - alert: Prometheus TSDB Compaction Failures
+        expr: sum(increase(prometheus_tsdb_compactions_failed_total[10m])) > 0
+        labels:
+          category: platform
+          severity: critical
+        annotations:
+          summary: "Prometheus TSDB compaction failed."
+          description: "Prometheus recorded a TSDB compaction failure in the last ten minutes; inspect disk space, permissions, and Prometheus storage logs."
+
+      - alert: Grafana Alloy Configuration Load Failure
+        expr: sum(increase(alloy_config_load_failures_total[10m])) > 0
+        labels:
+          category: platform
+          severity: critical
+        annotations:
+          summary: "Grafana Alloy configuration failed to load."
+          description: "Alloy recorded a configuration-load failure in the last ten minutes; inspect Alloy logs and validate the deployed configuration before restarting it."
+
+      - alert: cAdvisor Scrape Failure
+        expr: max(container_scrape_error{job="cadvisor", monitoring_scope="platform"}) > 0
+        for: 5m
+        labels:
+          category: platform
+          severity: warning
+        annotations:
+          summary: "cAdvisor is reporting a scrape failure."
+          description: "cAdvisor has reported a container scrape failure for five minutes; inspect cAdvisor logs and Docker/container health."
+
+      - alert: Platform Container High Memory
+        expr: |
+          (
+            100 *
+            sum by (container_label_com_docker_compose_service) (
+              container_memory_working_set_bytes{
+                job="cadvisor",
+                monitoring_scope="platform",
+                container_label_com_docker_compose_project="observability-test",
+                container_label_com_docker_compose_service!=""
+              }
+            )
+            /
+            sum by (container_label_com_docker_compose_service) (
+              container_spec_memory_limit_bytes{
+                job="cadvisor",
+                monitoring_scope="platform",
+                container_label_com_docker_compose_project="observability-test",
+                container_label_com_docker_compose_service!=""
+              } > 0
+            )
+          ) > 90
+        for: 10m
+        labels:
+          category: platform
+          severity: warning
+        annotations:
+          summary: "Platform container memory utilization is high."
+          description: "Compose service {{ $labels.container_label_com_docker_compose_service }} has exceeded 90% of its configured cAdvisor memory limit for ten minutes; inspect its workload, logs, and memory limit."
+
+      - alert: Loki WAL Corruption
+        expr: sum(increase(loki_ingester_wal_corruptions_total[10m])) > 0
+        labels:
+          category: platform
+          severity: critical
+        annotations:
+          summary: "Loki WAL corruption was detected."
+          description: "Loki recorded WAL corruption in the last ten minutes; inspect Loki logs and the telemetry disk before relying on recent log durability."
+
+      - alert: Loki WAL Disk Full
+        expr: sum(increase(loki_ingester_wal_disk_full_failures_total[10m])) > 0
+        labels:
+          category: platform
+          severity: critical
+        annotations:
+          summary: "Loki WAL writes encountered a full disk."
+          description: "Loki recorded a WAL disk-full failure in the last ten minutes; inspect telemetry filesystem capacity and retention immediately."
+
+      - alert: Loki Chunk Flush Failures
+        expr: sum(increase(loki_ingester_chunks_flush_failures_total[10m])) > 0
+        labels:
+          category: platform
+          severity: warning
+        annotations:
+          summary: "Loki chunk flushes are failing."
+          description: "Loki recorded chunk-flush failures in the last ten minutes; inspect Loki logs, object/filesystem storage, and disk capacity."

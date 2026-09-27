@@ -67,7 +67,7 @@ Observed Azure validation included:
   trace-derived metrics in Prometheus.
 - Alertmanager operation.
 - A controlled infrastructure failure in which the validation workload VM
-  became unavailable, its target went down, `MonitoringTargetDown` progressed
+  became unavailable, its target went down, `Monitoring Target Down` progressed
   from Pending to Firing, Alertmanager received the alert, and recovery
   cleared it.
 - A controlled checkout failure that produced HTTP 500, failed transaction
