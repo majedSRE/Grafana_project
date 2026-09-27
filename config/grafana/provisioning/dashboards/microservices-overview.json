@@ -109,19 +109,10 @@
       "options": {"showHeader": true, "cellHeight": "sm"}
     },
     {
-      "type": "traces",
-      "title": "Recent Retail Traces",
-      "description": "Recent traces from the known retail services in the retail-store namespace.",
-      "gridPos": {"h": 11, "w": 12, "x": 0, "y": 31},
-      "datasource": {"type": "tempo", "uid": "tempo"},
-      "targets": [{"queryType": "traceql", "query": "{ resource.service.namespace = \"retail-store\" && resource.service.name =~ \"${service:regex}\" }", "refId": "A"}],
-      "options": {"showTable": true, "showSearch": true, "showTags": true}
-    },
-    {
       "type": "logs",
       "title": "Application Logs",
       "description": "Docker-collected retail-store application logs. The working query intentionally keeps all five services because Loki exposes short service labels (ui, catalog, cart, checkout, orders), while the preserved dashboard variable uses retail-* names; direct interpolation would mismatch them.",
-      "gridPos": {"h": 11, "w": 12, "x": 12, "y": 31},
+      "gridPos": {"h": 11, "w": 24, "x": 0, "y": 31},
       "datasource": {"type": "loki", "uid": "loki"},
       "targets": [{"expr": "{log_type=\"application\",application=\"retail-store\",service=~\"ui|catalog|cart|checkout|orders\"}", "refId": "A"}],
       "options": {"showTime": true, "showLabels": false, "showCommonLabels": false, "wrapLines": true, "sortOrder": "Descending"}
