@@ -1,4 +1,4 @@
-name: Validate observability platform
+name: Validate OctoSight platform
 
 on:
   pull_request:

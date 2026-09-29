@@ -3,7 +3,7 @@ locals {
   location   = "centralus"
   private_ip = "10.20.0.4"
   tags = {
-    project     = "grafana-observability"
+    project     = "octosight-observability"
     environment = "test"
     managed_by  = "terraform"
   }

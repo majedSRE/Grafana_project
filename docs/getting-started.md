@@ -26,7 +26,7 @@ Run locally:
 
 ```powershell
 git clone <REPOSITORY_URL>
-Set-Location Grafana_project
+Set-Location OctoSight
 ```
 
 Expected result: the repository checkout contains `terraform/`,
